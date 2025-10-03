@@ -1,0 +1,6 @@
+{
+  "java.project.excludedPaths": ["node_modules/**"],
+  "java.import.gradle.enabled": false,
+  "java.import.maven.enabled": false,
+  "java.configuration.updateBuildConfiguration": "automatic"
+}

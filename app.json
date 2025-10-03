@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "star-stacker",
-    "slug": "star-stacker",
+    "name": "_scaffold",
+    "slug": "_scaffold",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
