@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { Box } from '@gluestack-ui/themed';
+import { Box, Image } from '@gluestack-ui/themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -13,31 +13,32 @@ import Animated, {
 import { BlockCell, BlockType } from '@/game/BlockTypes';
 import { GRID_COLS, GRID_ROWS } from '@/utils/constants';
 
-const colorFor = (cell: BlockCell) => {
-  if (!cell) return '#111';
-  switch (cell.type) {
+const imageForBlockType = (type: BlockType) => {
+  switch (type) {
     case BlockType.RICK:
-      return '#d9534f';
+      return require('../../assets/sprites/hamster.png');
     case BlockType.COO:
-      return '#5bc0de';
+      return require('../../assets/sprites/bird.png');
     case BlockType.KINE:
-      return '#f0ad4e';
+      return require('../../assets/sprites/fish.png');
     case BlockType.STAR:
-      return '#ffd700';
-    case BlockType.BOMB:
-      return '#b74';
+      return require('../../assets/sprites/star.png');
     case BlockType.BRICK:
-      return '#777';
+      return require('../../assets/sprites/block.png');
+    case BlockType.BOMB:
+      return require('../../assets/sprites/block.png'); // Using block.png as placeholder for bomb
+    default:
+      return require('../../assets/icon.png');
   }
 };
 
-const Cell: React.FC<{ bg: string; w: number; h: number; isClearing: boolean; shake: boolean }> = ({
-  bg,
-  w,
-  h,
-  isClearing,
-  shake,
-}) => {
+const Cell: React.FC<{
+  blockType: BlockType | null;
+  w: number;
+  h: number;
+  isClearing: boolean;
+  shake: boolean;
+}> = ({ blockType, w, h, isClearing, shake }) => {
   const opacity = useSharedValue(1);
   const translateX = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -66,10 +67,19 @@ const Cell: React.FC<{ bg: string; w: number; h: number; isClearing: boolean; sh
       translateX.value = withTiming(0, { duration: 120 });
     }
   }, [shake]);
+
+  const imageSource = blockType ? imageForBlockType(blockType) : null;
+
   return (
     <Animated.View
-      style={[{ width: w, height: h, backgroundColor: bg, borderRadius: 4 }, animatedStyle]}
-    />
+      style={[{ width: w, height: h, borderRadius: 4, overflow: 'hidden' }, animatedStyle]}
+    >
+      {imageSource ? (
+        <Image source={imageSource} alt="Block" style={{ width: w, height: h }} />
+      ) : (
+        <Box style={{ width: w, height: h, backgroundColor: '#111' }} />
+      )}
+    </Animated.View>
   );
 };
 
@@ -165,25 +175,26 @@ export const GameBoard: React.FC<{
               {row.map((cell, x) => {
                 const ghostCell = isGhost(x, y) && !cell;
                 const trailCell = isTrail(x, y) && !cell;
-                const bg = ghostCell
-                  ? 'rgba(255,255,255,0.15)'
-                  : trailCell
-                  ? 'rgba(255,255,255,0.08)'
-                  : colorFor(cell);
+                const blockType = cell?.type || null;
                 const isClearing = clearingPositions.has(`${x},${y}`);
                 const shake = bombRows.has(y);
                 const fallAnim = isFalling(x, y);
+
+                // For ghost/trail, show empty or faint overlay; otherwise show the block image
+                const displayType = ghostCell || trailCell ? null : blockType;
+
                 return (
                   <Box
                     key={x}
                     style={{
                       marginRight: x < cols - 1 ? cellGap : 0,
                       marginBottom: y < rows - 1 ? cellGap : 0,
+                      opacity: ghostCell ? 0.3 : trailCell ? 0.15 : 1,
                     }}
                   >
                     <FallingWrapper active={fallAnim} cellSize={cellSize}>
                       <Cell
-                        bg={bg}
+                        blockType={displayType}
                         w={cellSize}
                         h={cellSize}
                         isClearing={isClearing}
