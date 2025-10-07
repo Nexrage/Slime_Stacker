@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect } from 'react';
 import { Box } from '@gluestack-ui/themed';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,6 +11,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { BlockCell, BlockType } from '@/game/BlockTypes';
+import { GRID_COLS, GRID_ROWS } from '@/utils/constants';
 
 const colorFor = (cell: BlockCell) => {
   if (!cell) return '#111';
@@ -66,10 +68,7 @@ const Cell: React.FC<{ bg: string; w: number; h: number; isClearing: boolean; sh
   }, [shake]);
   return (
     <Animated.View
-      style={[
-        { width: w, height: h, margin: 4, backgroundColor: bg, borderRadius: 4 },
-        animatedStyle,
-      ]}
+      style={[{ width: w, height: h, backgroundColor: bg, borderRadius: 4 }, animatedStyle]}
     />
   );
 };
@@ -82,6 +81,15 @@ export const GameBoard: React.FC<{
   shakeBoard?: boolean;
   events?: { type: string; [k: string]: any }[];
 }> = ({ grid, ghost = [], falling = [], dropTrail = [], shakeBoard = false, events = [] }) => {
+  const insets = useSafeAreaInsets();
+  const [container, setContainer] = React.useState<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
+  const onLayout = React.useCallback((e: any) => {
+    const { width, height } = e.nativeEvent.layout;
+    setContainer({ width, height });
+  }, []);
   const isGhost = (x: number, y: number) => ghost.some(p => p.x === x && p.y === y);
   const isFalling = (x: number, y: number) => falling.some(p => p.x === x && p.y === y);
   const isTrail = (x: number, y: number) => dropTrail.some(p => p.x === x && p.y === y);
@@ -115,55 +123,98 @@ export const GameBoard: React.FC<{
     }
   }, [shakeBoard]);
 
+  // Dynamic sizing
+  const cols = grid[0]?.length || GRID_COLS;
+  const rows = grid.length || GRID_ROWS;
+  const boardPadding = 6;
+  const cellGap = 4;
+  const availableWidth = Math.max(
+    0,
+    container.width - insets.left - insets.right - boardPadding * 2
+  );
+  const availableHeight = Math.max(
+    0,
+    container.height - insets.top - insets.bottom - boardPadding * 2
+  );
+  const cellSizeW = (availableWidth - (cols - 1) * cellGap) / cols;
+  const cellSizeH = (availableHeight - (rows - 1) * cellGap) / rows;
+  const cellSize = Math.max(8, Math.floor(Math.min(cellSizeW, cellSizeH || 0)));
+  const boardPixelWidth = cols * cellSize + (cols - 1) * cellGap + boardPadding * 2;
+  const boardPixelHeight = rows * cellSize + (rows - 1) * cellGap + boardPadding * 2;
+  const scale =
+    container.width && container.height
+      ? Math.min(container.width / boardPixelWidth, container.height / boardPixelHeight, 1)
+      : 1;
+
   return (
-    <Box alignItems="center" justifyContent="center" flex={1} p="$3">
-      <Animated.View
-        style={[
-          { width: 8 * 32 + 8, height: 12 * 32 + 8, padding: 4, backgroundColor: '#222' },
-          boardStyle,
-        ]}
-      >
-        {grid.map((row, y) => (
-          <Box key={y} style={{ flexDirection: 'row' }}>
-            {row.map((cell, x) => {
-              const ghostCell = isGhost(x, y) && !cell;
-              const trailCell = isTrail(x, y) && !cell;
-              const bg = ghostCell
-                ? 'rgba(255,255,255,0.15)'
-                : trailCell
-                ? 'rgba(255,255,255,0.08)'
-                : colorFor(cell);
-              const isClearing = clearingPositions.has(`${x},${y}`);
-              const shake = bombRows.has(y);
-              const fallAnim = isFalling(x, y);
-              return (
-                <FallingWrapper key={x} active={fallAnim}>
-                  <Cell bg={bg} w={32} h={32} isClearing={isClearing} shake={shake} />
-                </FallingWrapper>
-              );
-            })}
-          </Box>
-        ))}
-      </Animated.View>
+    <Box onLayout={onLayout} alignItems="center" justifyContent="center" flex={1} p="$3">
+      <Box style={{ transform: [{ scale }] }}>
+        <Animated.View
+          style={[
+            {
+              width: boardPixelWidth,
+              height: boardPixelHeight,
+              padding: boardPadding,
+              backgroundColor: '#222',
+            },
+            boardStyle,
+          ]}
+        >
+          {grid.map((row, y) => (
+            <Box key={y} style={{ flexDirection: 'row' }}>
+              {row.map((cell, x) => {
+                const ghostCell = isGhost(x, y) && !cell;
+                const trailCell = isTrail(x, y) && !cell;
+                const bg = ghostCell
+                  ? 'rgba(255,255,255,0.15)'
+                  : trailCell
+                  ? 'rgba(255,255,255,0.08)'
+                  : colorFor(cell);
+                const isClearing = clearingPositions.has(`${x},${y}`);
+                const shake = bombRows.has(y);
+                const fallAnim = isFalling(x, y);
+                return (
+                  <Box
+                    key={x}
+                    style={{
+                      marginRight: x < cols - 1 ? cellGap : 0,
+                      marginBottom: y < rows - 1 ? cellGap : 0,
+                    }}
+                  >
+                    <FallingWrapper active={fallAnim} cellSize={cellSize}>
+                      <Cell
+                        bg={bg}
+                        w={cellSize}
+                        h={cellSize}
+                        isClearing={isClearing}
+                        shake={shake}
+                      />
+                    </FallingWrapper>
+                  </Box>
+                );
+              })}
+            </Box>
+          ))}
+        </Animated.View>
+      </Box>
     </Box>
   );
 };
 
-const FallingWrapper: React.FC<{ active: boolean; children: React.ReactNode }> = React.memo(
-  ({ active, children }) => {
+const FallingWrapper: React.FC<{ active: boolean; cellSize: number; children: React.ReactNode }> =
+  React.memo(({ active, cellSize, children }) => {
     const ty = useSharedValue(0);
     const style = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
     useEffect(() => {
       if (active) {
         ty.value = 0;
         ty.value = withTiming(0, { duration: 0 });
-        ty.value = withTiming(32, { duration: 450 }, () => {
+        ty.value = withTiming(cellSize, { duration: 450 }, () => {
           ty.value = withTiming(0, { duration: 0 });
         });
       } else {
         ty.value = withTiming(0, { duration: 120 });
       }
-    }, [active]);
+    }, [active, cellSize]);
     return <Animated.View style={style}>{children}</Animated.View>;
-  }
-);
+  });

@@ -8,6 +8,10 @@ import {
   Heading,
   Pressable,
   Text,
+  VStack,
+  Avatar,
+  AvatarImage,
+  AvatarFallbackText,
 } from '@gluestack-ui/themed';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -114,31 +118,37 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'right', 'left', 'bottom']}>
-      <Box flex={1} accessibilityLabel="Game Screen">
-        <GameUI
-          mode={params.mode}
-          difficulty={params.difficulty}
-          score={score}
-          chains={chains}
-          next={next}
-          hold={hold}
-          canHold={canHold}
-        />
-        {timerText ? (
-          <Center style={{ position: 'absolute', top: 8, right: 12 }} accessibilityLabel="Timer">
-            <Heading
-              style={{
-                backgroundColor: 'rgba(0,0,0,0.4)',
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-              }}
-            >
-              {timerText}
-            </Heading>
-          </Center>
-        ) : null}
+      <Box
+        flex={1}
+        accessibilityLabel="Game Screen"
+        style={{ borderColor: '#00ffff', borderWidth: 1 }}
+      >
+        <Box style={{ borderColor: '#44aaee', borderWidth: 1 }}>
+          <GameUI
+            mode={params.mode}
+            difficulty={params.difficulty}
+            score={score}
+            chains={chains}
+            next={next}
+            hold={hold}
+            canHold={canHold}
+          />
+          {timerText ? (
+            <HStack justifyContent="flex-end" p="$3" accessibilityLabel="Timer">
+              <Heading
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.4)',
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                }}
+              >
+                {timerText}
+              </Heading>
+            </HStack>
+          ) : null}
+        </Box>
         <GestureDetector gesture={composed}>
-          <Box flex={1}>
+          <Box flex={1} alignItems="center" justifyContent="center">
             <GameBoard
               grid={grid}
               ghost={ghost}
@@ -149,21 +159,11 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
             />
           </Box>
         </GestureDetector>
-        {chains > 0 ? (
-          <Center style={{ position: 'absolute', top: 72, left: 0, right: 0 }}>
-            <Heading
-              style={{
-                backgroundColor: 'rgba(0,0,0,0.4)',
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-              }}
-            >
-              Chain x{chains}
-            </Heading>
-          </Center>
-        ) : null}
-        {gameOver ? (
+        {null}
+        {/* Overlays */}
+        {gameOver && (
           <Center
+            pointerEvents="auto"
             style={{
               position: 'absolute',
               top: 0,
@@ -171,6 +171,8 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
               right: 0,
               bottom: 0,
               backgroundColor: 'rgba(0,0,0,0.55)',
+              borderColor: '#ff0000',
+              borderWidth: 1,
             }}
             accessibilityLabel="Game Over Overlay"
           >
@@ -198,8 +200,10 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
               </Button>
             </HStack>
           </Center>
-        ) : !active ? (
+        )}
+        {!gameOver && !active && (
           <Center
+            pointerEvents="auto"
             style={{
               position: 'absolute',
               top: 0,
@@ -207,6 +211,8 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
               right: 0,
               bottom: 0,
               backgroundColor: 'rgba(0,0,0,0.55)',
+              borderColor: '#ffa500',
+              borderWidth: 1,
             }}
             accessibilityLabel="Paused Overlay"
           >
@@ -224,31 +230,31 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
               </Button>
             </HStack>
           </Center>
-        ) : (
-          <HStack justifyContent="space-between" p="$3">
-            <Button onPress={moveLeft} accessibilityLabel="Move Left">
-              <ButtonText>Left</ButtonText>
-            </Button>
-            <Button onPress={rotate} accessibilityLabel="Rotate">
-              <ButtonText>Rotate</ButtonText>
-            </Button>
-            <Button onPress={softDrop} accessibilityLabel="Soft Drop">
-              <ButtonText>Down</ButtonText>
-            </Button>
-            <Button onPress={moveRight} accessibilityLabel="Move Right">
-              <ButtonText>Right</ButtonText>
-            </Button>
-            <Button onPress={holdAction} accessibilityLabel="Hold Swap">
-              <ButtonText>Hold</ButtonText>
-            </Button>
-            <Button onPress={() => setActive(a => !a)} accessibilityLabel="Pause or Resume">
-              <ButtonText>{active ? 'Pause' : 'Resume'}</ButtonText>
-            </Button>
-            <Button onPress={() => navigation.popToTop()} accessibilityLabel="Exit to Menu">
-              <ButtonText>Exit</ButtonText>
-            </Button>
-          </HStack>
         )}
+
+        {/* Footer HUD always rendered so layout doesn't change */}
+        <Box p="$3" style={{ borderColor: '#ee8844', borderWidth: 1 }}>
+          <HStack alignItems="center" justifyContent="space-between">
+            <HStack alignItems="center">
+              <Avatar size="lg">
+                <AvatarImage source={require('../../assets/icon.png')} alt="Player Avatar" />
+                <AvatarFallbackText>Player</AvatarFallbackText>
+              </Avatar>
+              <VStack style={{ marginLeft: 12 }}>
+                <Text>Player One</Text>
+                <Text>
+                  {params.mode ? `${params.mode}` : 'Mode'}{' '}
+                  {params.difficulty ? `• ${params.difficulty}` : ''}
+                </Text>
+              </VStack>
+            </HStack>
+            <VStack alignItems="flex-end">
+              <Text>Score</Text>
+              <Heading>{score}</Heading>
+              {chains > 0 ? <Text>Chain x{chains}</Text> : null}
+            </VStack>
+          </HStack>
+        </Box>
       </Box>
     </SafeAreaView>
   );
