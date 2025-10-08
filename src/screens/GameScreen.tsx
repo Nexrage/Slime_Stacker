@@ -22,6 +22,7 @@ import { useGameLoop } from '@/hooks/useGameLoop';
 import { submitHighscore, loadSettings, Settings } from '@/utils/storage';
 import { audio } from '@/utils/audio';
 import { AppState } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 export const GameScreen: React.FC<any> = ({ navigation, route }) => {
   const params = route?.params || {};
@@ -48,6 +49,7 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
     gameOver,
     dropTrail,
     shake,
+    isResolving,
   } = useGameLoop(active, params.mode, {
     hapticsEnabled: settings?.haptics !== false,
     sameSeed: params?.sameSeed,
@@ -87,10 +89,12 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
     };
   }, [navigation]);
 
+  const blocked = gameOver || !active || isResolving;
+
   const pan = Gesture.Pan()
     .minDistance(12)
     .onEnd(e => {
-      if (gameOver || !active) return;
+      if (blocked) return;
       const dx = e.translationX;
       const dy = e.translationY;
       if (Math.abs(dx) > Math.abs(dy)) {
@@ -103,14 +107,14 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
     });
 
   const tap = Gesture.Tap().onEnd(() => {
-    if (gameOver || !active) return;
+    if (blocked) return;
     runOnJS(rotate)();
   });
 
   const longPress = Gesture.LongPress()
     .minDuration(350)
     .onStart(() => {
-      if (gameOver || !active) return;
+      if (blocked) return;
       if (canHold) runOnJS(holdAction)();
     });
 
@@ -124,28 +128,43 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
         style={{ borderColor: '#00ffff', borderWidth: 1 }}
       >
         <Box style={{ borderColor: '#44aaee', borderWidth: 1 }}>
-          <GameUI
-            mode={params.mode}
-            difficulty={params.difficulty}
-            score={score}
-            chains={chains}
-            next={next}
-            hold={hold}
-            canHold={canHold}
-          />
-          {timerText ? (
-            <HStack justifyContent="flex-end" p="$3" accessibilityLabel="Timer">
-              <Heading
-                style={{
-                  backgroundColor: 'rgba(0,0,0,0.4)',
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
+          <HStack justifyContent="space-between" alignItems="center" p="$2">
+            <Box flex={1}>
+              <GameUI
+                mode={params.mode}
+                difficulty={params.difficulty}
+                score={score}
+                chains={chains}
+                next={next}
+                hold={hold}
+                canHold={canHold}
+              />
+            </Box>
+            <HStack alignItems="center" space="md">
+              {timerText ? (
+                <Heading
+                  style={{
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                  }}
+                >
+                  {timerText}
+                </Heading>
+              ) : null}
+              <Button
+                size="sm"
+                onPress={() => {
+                  if (settings?.haptics !== false) Haptics.selectionAsync();
+                  setActive(false);
                 }}
+                accessibilityLabel="Pause Game"
+                variant="outline"
               >
-                {timerText}
-              </Heading>
+                <ButtonText>⏸</ButtonText>
+              </Button>
             </HStack>
-          ) : null}
+          </HStack>
         </Box>
         <GestureDetector gesture={composed}>
           <Box flex={1} alignItems="center" justifyContent="center">
@@ -181,7 +200,10 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
             <HStack style={{ marginBottom: 12 }}>
               <Text style={{ marginRight: 12 }}>Same Seed (dev)</Text>
               <Button
-                onPress={() => navigation.setParams({ sameSeed: !params?.sameSeed })}
+                onPress={() => {
+                  if (settings?.haptics !== false) Haptics.selectionAsync();
+                  navigation.setParams({ sameSeed: !params?.sameSeed });
+                }}
                 accessibilityLabel="Toggle Same Seed"
               >
                 <ButtonText>{params?.sameSeed ? 'On' : 'Off'}</ButtonText>
@@ -189,13 +211,23 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
             </HStack>
             <HStack>
               <Button
-                onPress={restart}
+                onPress={() => {
+                  if (settings?.haptics !== false)
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  restart();
+                }}
                 accessibilityLabel="Restart Game"
                 style={{ marginRight: 12 }}
               >
                 <ButtonText>Restart</ButtonText>
               </Button>
-              <Button onPress={() => navigation.popToTop()} accessibilityLabel="Exit to Menu">
+              <Button
+                onPress={() => {
+                  if (settings?.haptics !== false) Haptics.selectionAsync();
+                  navigation.popToTop();
+                }}
+                accessibilityLabel="Exit to Menu"
+              >
                 <ButtonText>Exit</ButtonText>
               </Button>
             </HStack>
@@ -219,13 +251,22 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
             <Heading style={{ marginBottom: 12 }}>Paused</Heading>
             <HStack>
               <Button
-                onPress={() => setActive(true)}
+                onPress={() => {
+                  if (settings?.haptics !== false) Haptics.selectionAsync();
+                  setActive(true);
+                }}
                 accessibilityLabel="Resume Game"
                 style={{ marginRight: 12 }}
               >
                 <ButtonText>Resume</ButtonText>
               </Button>
-              <Button onPress={() => navigation.popToTop()} accessibilityLabel="Exit to Menu">
+              <Button
+                onPress={() => {
+                  if (settings?.haptics !== false) Haptics.selectionAsync();
+                  navigation.popToTop();
+                }}
+                accessibilityLabel="Exit to Menu"
+              >
                 <ButtonText>Exit</ButtonText>
               </Button>
             </HStack>

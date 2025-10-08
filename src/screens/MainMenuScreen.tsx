@@ -28,6 +28,9 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
           <Button onPress={() => navigation.navigate('Game', { mode: 'timeAttack' })} mb="$3">
             <ButtonText>Time Attack</ButtonText>
           </Button>
+          <Button onPress={() => navigation.navigate('Tutorial')} mb="$3">
+            <ButtonText>How to Play</ButtonText>
+          </Button>
           <Button onPress={() => navigation.navigate('Settings')}>
             <ButtonText>Settings</ButtonText>
           </Button>

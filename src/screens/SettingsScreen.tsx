@@ -3,6 +3,7 @@ import { Box, Heading, HStack, Text, Switch, VStack } from '@gluestack-ui/themed
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loadSettings, saveSettings, Settings } from '@/utils/storage';
 import { audio } from '@/utils/audio';
+import * as Haptics from 'expo-haptics';
 
 export const SettingsScreen: React.FC = () => {
   const [sound, setSound] = React.useState(true);
@@ -38,7 +39,14 @@ export const SettingsScreen: React.FC = () => {
           </HStack>
           <HStack alignItems="center" justifyContent="space-between">
             <Text>Haptics</Text>
-            <Switch value={haptics} onValueChange={setHaptics} />
+            <Switch
+              value={haptics}
+              onValueChange={v => {
+                setHaptics(v);
+                // immediate feedback on toggle
+                if (v) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }}
+            />
           </HStack>
         </VStack>
       </Box>

@@ -7,6 +7,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { TitleScreen } from '@/screens/TitleScreen';
 import { MainMenuScreen } from '@/screens/MainMenuScreen';
+import { TutorialScreen } from '@/screens/TutorialScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { LevelSelectScreen } from '@/screens/LevelSelectScreen';
 import { GameScreen } from '@/screens/GameScreen';
@@ -22,6 +23,7 @@ export default function App() {
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Title" component={TitleScreen} />
               <Stack.Screen name="MainMenu" component={MainMenuScreen} />
+              <Stack.Screen name="Tutorial" component={TutorialScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
               <Stack.Screen name="LevelSelect" component={LevelSelectScreen} />
               <Stack.Screen name="Game" component={GameScreen} />

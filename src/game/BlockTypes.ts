@@ -7,4 +7,4 @@ export enum BlockType {
   BRICK = 'brick',
 }
 
-export type BlockCell = { type: BlockType } | null;
+export type BlockCell = { type: BlockType; cracked?: boolean } | null;
