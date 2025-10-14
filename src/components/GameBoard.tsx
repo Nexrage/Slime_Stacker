@@ -1,6 +1,5 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { Box, Image } from '@gluestack-ui/themed';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -176,7 +175,6 @@ export const GameBoard: React.FC<{
   shakeBoard?: boolean;
   events?: { type: string; [k: string]: any }[];
 }> = ({ grid, ghost = [], falling = [], dropTrail = [], shakeBoard = false, events = [] }) => {
-  const insets = useSafeAreaInsets();
   const [container, setContainer] = React.useState<{ width: number; height: number }>({
     width: 0,
     height: 0,
@@ -270,96 +268,97 @@ export const GameBoard: React.FC<{
     return () => clearInterval(int);
   }, []);
 
-  // Dynamic sizing
+  // Dynamic sizing - fill container completely
   const cols = grid[0]?.length || GRID_COLS;
   const rows = grid.length || GRID_ROWS;
-  const boardPadding = 2; // reduced padding to allow larger cells
-  const cellGap = 2; // reduced gap to allow larger cells
-  const availableWidth = Math.max(
-    0,
-    container.width - insets.left - insets.right - boardPadding * 2
-  );
-  const availableHeight = Math.max(
-    0,
-    container.height - insets.top - insets.bottom - boardPadding * 2
-  );
-  const cellSizeW = (availableWidth - (cols - 1) * cellGap) / cols;
-  const cellSizeH = (availableHeight - (rows - 1) * cellGap) / rows;
-  const cellSize = Math.max(16, Math.floor(Math.min(cellSizeW, cellSizeH || 0)));
+  const boardPadding = 8;
+  const cellGap = 3;
+
+  // Use container dimensions directly (SafeAreaView already handles insets)
+  const availableWidth = container.width;
+  const availableHeight = container.height;
+
+  // Calculate max cell size that fits
+  const cellSizeW = (availableWidth - (cols - 1) * cellGap - boardPadding * 2) / cols;
+  const cellSizeH = (availableHeight - (rows - 1) * cellGap - boardPadding * 2) / rows;
+  const cellSize = Math.floor(Math.min(cellSizeW, cellSizeH || 0));
+
   const boardPixelWidth = cols * cellSize + (cols - 1) * cellGap + boardPadding * 2;
   const boardPixelHeight = rows * cellSize + (rows - 1) * cellGap + boardPadding * 2;
-  const scale =
-    container.width && container.height
-      ? Math.min(container.width / boardPixelWidth, container.height / boardPixelHeight, 1)
-      : 1;
 
   return (
-    <Box onLayout={onLayout} alignItems="center" justifyContent="center" flex={1} p="$3">
-      <Box style={{ transform: [{ scale }] }}>
-        <Animated.View
-          style={[
-            {
-              width: boardPixelWidth,
-              height: boardPixelHeight,
-              padding: boardPadding,
-              backgroundColor: '#222',
-            },
-            boardStyle,
-          ]}
-        >
-          {grid.map((row, y) => (
-            <Box key={y} style={{ flexDirection: 'row' }}>
-              {row.map((cell, x) => {
-                const ghostCell = isGhost(x, y) && !cell;
-                const trailCell = isTrail(x, y) && !cell;
-                const keyStr = `${x},${y}`;
-                const shake = bombRows.has(y);
-                const fallAnim = isFalling(x, y);
-                const flash = flashTargets.has(keyStr);
-                const baseType = cell?.type || null;
-                const cracked = (cell as any)?.cracked === true;
-                const renderType = flash ? flashTypeMap.get(keyStr) ?? baseType : baseType;
-                // For ghost/trail, show empty or faint overlay; if flashing, force render
-                const displayType = flash ? renderType : ghostCell || trailCell ? null : renderType;
+    <Box
+      onLayout={onLayout}
+      flex={1}
+      width="$full"
+      height="$full"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Animated.View
+        style={[
+          {
+            width: boardPixelWidth,
+            height: boardPixelHeight,
+            padding: boardPadding,
+            backgroundColor: '#222',
+            borderRadius: 8,
+          },
+          boardStyle,
+        ]}
+      >
+        {grid.map((row, y) => (
+          <Box key={y} style={{ flexDirection: 'row' }}>
+            {row.map((cell, x) => {
+              const ghostCell = isGhost(x, y) && !cell;
+              const trailCell = isTrail(x, y) && !cell;
+              const keyStr = `${x},${y}`;
+              const shake = bombRows.has(y);
+              const fallAnim = isFalling(x, y);
+              const flash = flashTargets.has(keyStr);
+              const baseType = cell?.type || null;
+              const cracked = (cell as any)?.cracked === true;
+              const renderType = flash ? flashTypeMap.get(keyStr) ?? baseType : baseType;
+              // For ghost/trail, show empty or faint overlay; if flashing, force render
+              const displayType = flash ? renderType : ghostCell || trailCell ? null : renderType;
 
-                // Gravity fall amount for this destination cell (in cells)
-                const gravityDyCells = gravityFalls.get(keyStr) || 0;
-                const gravityDyPx = gravityDyCells > 0 ? gravityDyCells * cellSize : 0;
+              // Gravity fall amount for this destination cell (in cells)
+              const gravityDyCells = gravityFalls.get(keyStr) || 0;
+              const gravityDyPx = gravityDyCells > 0 ? gravityDyCells * cellSize : 0;
 
-                // During interim chain step, bob cells that are about to fall (have empty space below)
-                const isInterim = Array.isArray(events) && events.length > 0;
-                const hasEmptyBelow = y + 1 < rows && !grid[y + 1][x];
-                const shouldBob = fallAnim || (isInterim && hasEmptyBelow && !!baseType && !flash);
+              // During interim chain step, bob cells that are about to fall (have empty space below)
+              const isInterim = Array.isArray(events) && events.length > 0;
+              const hasEmptyBelow = y + 1 < rows && !grid[y + 1][x];
+              const shouldBob = fallAnim || (isInterim && hasEmptyBelow && !!baseType && !flash);
 
-                return (
-                  <Box
-                    key={x}
-                    style={{
-                      marginRight: x < cols - 1 ? cellGap : 0,
-                      marginBottom: y < rows - 1 ? cellGap : 0,
-                      opacity: flash ? 1 : ghostCell ? 0.3 : trailCell ? 0.15 : 1,
-                    }}
-                  >
-                    <GravityWrapper offsetPx={gravityDyPx} durationMs={350}>
-                      <FallingWrapper active={fallAnim} cellSize={cellSize}>
-                        <Cell
-                          blockType={displayType}
-                          w={cellSize}
-                          h={cellSize}
-                          shake={shake}
-                          flash={flash}
-                          bobFrame={shouldBob ? globalBobFrame : 0}
-                          cracked={cracked}
-                        />
-                      </FallingWrapper>
-                    </GravityWrapper>
-                  </Box>
-                );
-              })}
-            </Box>
-          ))}
-        </Animated.View>
-      </Box>
+              return (
+                <Box
+                  key={x}
+                  style={{
+                    marginRight: x < cols - 1 ? cellGap : 0,
+                    marginBottom: y < rows - 1 ? cellGap : 0,
+                    opacity: flash ? 1 : ghostCell ? 0.3 : trailCell ? 0.15 : 1,
+                  }}
+                >
+                  <GravityWrapper offsetPx={gravityDyPx} durationMs={350}>
+                    <FallingWrapper active={fallAnim} cellSize={cellSize}>
+                      <Cell
+                        blockType={displayType}
+                        w={cellSize}
+                        h={cellSize}
+                        shake={shake}
+                        flash={flash}
+                        bobFrame={shouldBob ? globalBobFrame : 0}
+                        cracked={cracked}
+                      />
+                    </FallingWrapper>
+                  </GravityWrapper>
+                </Box>
+              );
+            })}
+          </Box>
+        ))}
+      </Animated.View>
     </Box>
   );
 };
