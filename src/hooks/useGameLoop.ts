@@ -22,68 +22,14 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
   const [dropTrail, setDropTrail] = useState<{ x: number; y: number }[]>([]);
   const dropTrailTimer = useRef<any>(null);
   const [shake, setShake] = useState(false);
-  const [isResolving, setIsResolving] = useState(false); // Interim phase lock
+  // isResolving removed - clearing phase now pauses via setTimeout
 
   const timer = useRef<any>(null);
   const handTimer = useRef<any>(null);
   const handIntervalMs = useRef<number>(10000);
   const stateRef = useRef<EngineState>(initialEngineState(seed));
 
-  // Group events by chain index (> 0). Chain 0 events (e.g., lock) are not animated as a chain step
-  function groupEventsByChain(ev: GameEvent[]) {
-    const map = new Map<number, GameEvent[]>();
-    ev.forEach(e => {
-      const chain = (e as any).chain ?? 0;
-      const arr = map.get(chain) ?? [];
-      arr.push(e);
-      map.set(chain, arr);
-    });
-    const grouped = Array.from(map.entries())
-      .filter(([c]) => c > 0)
-      .sort((a, b) => a[0] - b[0])
-      .map(([, arr]) => arr);
-    if (grouped.length > 0) {
-      console.log('🎞️ [INTERIM] groupEventsByChain', grouped.map(g => g.map(e => e.type)));
-    }
-    return grouped;
-  }
-
-  // Play interim phase animations one chain at a time and lock input
-  async function playInterim(ev: GameEvent[]) {
-    console.log('🎞️ [INTERIM] start', ev.map(e => ({ type: e.type, chain: (e as any).chain })));
-    const chains = groupEventsByChain(ev);
-    if (chains.length === 0) return;
-    setIsResolving(true);
-    console.log('🔒 [INTERIM] isResolving=true');
-    for (const chainEvents of chains) {
-      const summary = chainEvents.map(e => {
-        const cellsLen = (e as any).cells ? (e as any).cells.length : 0;
-        return { type: e.type, chain: (e as any).chain, cells: cellsLen };
-      });
-      console.log('✨ [INTERIM] chain step', summary);
-      setEvents(chainEvents);
-      // Haptics per chain step for feedback
-      if (opts?.hapticsEnabled !== false) {
-        const hasBomb = chainEvents.some(e => e.type === 'bomb');
-        const hasClear = chainEvents.some(e => e.type === 'clear');
-        if (hasBomb) {
-          // Stronger feedback for bomb
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        } else if (hasClear) {
-          // Lighter tick for clears
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          Haptics.selectionAsync();
-        }
-      }
-      // give time for animations (clear/bomb) to play
-      await new Promise(r => setTimeout(r, 350));
-      console.log('⏭️ [INTERIM] chain step done');
-    }
-    setEvents([]);
-    setIsResolving(false);
-    console.log('🔓 [INTERIM] isResolving=false');
-  }
+  // Old interim system removed - animations now happen in real-time during clearing phase
 
   // Helper: insert a new row at bottom and shift up
   const raiseHandRow = useCallback(() => {
@@ -92,13 +38,18 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     // generate a bottom row
     const bottom: ({ type: BlockType } | null)[] = Array.from({ length: newGrid[0].length }, () => {
       const r = Math.random();
-      if (r < 0.15) return { type: BlockType.STAR };
-      if (r < 0.45) return { type: [BlockType.RICK, BlockType.COO, BlockType.KINE][Math.floor(Math.random()*3)] };
-      return null;
+      // No empties for challenge-mode helper: 30% Star, 60% Friend, 10% Brick
+      if (r < 0.3) return { type: BlockType.STAR };
+      if (r < 0.9) return { type: [BlockType.RICK, BlockType.COO, BlockType.KINE][Math.floor(Math.random()*3)] };
+      return { type: BlockType.BRICK };
     });
-    // shift up
+    // full brick row above the random row
+    const brickRow: ({ type: BlockType })[] = Array.from({ length: newGrid[0].length }, () => ({ type: BlockType.BRICK }));
+    // shift up by two and push rows (Brick above RNG; RNG is the bottom-most of the two)
     newGrid.shift();
-    newGrid.push(bottom);
+    newGrid.shift();
+    newGrid.push(brickRow as any);
+    newGrid.push(bottom as any);
     // if top row had blocks before shift (i.e., after shift anything null? handled above), detect overflow
     const overflow = newGrid[0].some(c => !!c);
     stateRef.current = { ...s, grid: newGrid } as EngineState;
@@ -118,12 +69,47 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
       accumulated += now - lastTs;
       lastTs = now;
       while (accumulated >= tickMs) {
-        // During interim resolution, do not advance engine state (prevents new spawns during chains)
-        if (isResolving) {
-          accumulated = 0; // drop backlog to keep timing stable
+        const result = tick(stateRef.current);
+        
+        // If entering clearing phase, pause ticks and play animation
+        if (result.phase.type === 'clearing' && stateRef.current.phase.type !== 'clearing') {
+          console.log('⏸️ [PAUSE] Entering clearing phase - playing clear animation');
+          setEvents(result.events || []);
+          stateRef.current = {
+            grid: result.grid,
+            falling: result.falling,
+            next: result.next,
+            hold: result.hold,
+            canHold: result.canHold,
+            seed: stateRef.current.seed,
+            rng: stateRef.current.rng,
+            phase: result.phase,
+            chainState: stateRef.current.chainState,
+          } as EngineState;
+          
+          // Wait for animation (300ms), then continue
+          setTimeout(() => {
+            console.log('▶️ [RESUME] Clear animation complete - continuing');
+            setEvents([]);
+            // Force a tick to exit clearing phase
+            const continueResult = tick(stateRef.current);
+            stateRef.current = {
+              grid: continueResult.grid,
+              falling: continueResult.falling,
+              next: continueResult.next,
+              hold: continueResult.hold,
+              canHold: continueResult.canHold,
+              seed: stateRef.current.seed,
+              rng: stateRef.current.rng,
+              phase: continueResult.phase,
+              chainState: stateRef.current.chainState,
+            } as EngineState;
+            setGrid(overlayPair(continueResult.grid, continueResult.falling));
+          }, 300);
+          
+          accumulated = 0;
           break;
         }
-        const result = tick(stateRef.current);
         stateRef.current = {
           grid: result.grid,
           falling: result.falling,
@@ -132,6 +118,8 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
           canHold: result.canHold,
           seed: stateRef.current.seed,
           rng: stateRef.current.rng,
+          phase: result.phase,
+          chainState: result.phase.type === 'falling' ? { totalStars: 0, chainCount: 0, clearedGrid: null } : stateRef.current.chainState,
         } as EngineState;
         if (result.gameOver) {
           setGameOver(true);
@@ -151,27 +139,19 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
         } else if (chainCount === 0) {
           setChains(0);
         }
+        // SFX & Haptics for events (only when not in clearing phase pause)
         const ev = (result.events || []) as GameEvent[];
-        setEvents(ev);
-        // Kick off interim sequencing (non-blocking)
-        if ((result.chains || 0) > 0) {
-          // fire-and-forget; we intentionally don't await inside RAF loop
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          playInterim(ev);
+        if (ev.length > 0 && result.phase.type !== 'clearing') {
+          ev.forEach(e => {
+            if (e.type === 'clear') {
+              // audio.playSfxAsync('clear', require('../../assets/clear.wav'));
+              if (opts?.hapticsEnabled !== false) Haptics.selectionAsync();
+            } else if (e.type === 'bomb') {
+              // audio.playSfxAsync('bomb', require('../../assets/bomb.wav'));
+              if (opts?.hapticsEnabled !== false) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            }
+          });
         }
-        // SFX & Haptics hooks
-        ev.forEach(e => {
-          if (e.type === 'lock') {
-            // audio.playSfxAsync('lock', require('../../assets/lock.wav'));
-            if (opts?.hapticsEnabled !== false) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          } else if (e.type === 'clear') {
-            // audio.playSfxAsync('clear', require('../../assets/clear.wav'));
-            if (opts?.hapticsEnabled !== false) Haptics.selectionAsync();
-          } else if (e.type === 'bomb') {
-            // audio.playSfxAsync('bomb', require('../../assets/bomb.wav'));
-            if (opts?.hapticsEnabled !== false) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          }
-        });
         setNext(stateRef.current.next as unknown as [string, string]);
         setHold(stateRef.current.hold as unknown as [string, string] | null);
         setCanHold(stateRef.current.canHold);
@@ -184,7 +164,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     };
     timer.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(timer.current);
-  }, [active, gameOver, isResolving]);
+  }, [active, gameOver]);
 
   // Challenge mode hand-raise
   useEffect(() => {
@@ -303,6 +283,8 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
       canHold: result.canHold,
       seed: stateRef.current.seed,
       rng: stateRef.current.rng,
+      phase: result.phase,
+      chainState: result.phase.type === 'falling' ? { totalStars: 0, chainCount: 0, clearedGrid: null } : stateRef.current.chainState,
     } as EngineState;
     if (result.gameOver) {
       setGameOver(true);
@@ -324,7 +306,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     } else if (chainCount === 0) {
       setChains(0);
     }
-    setEvents((result.events || []) as GameEvent[]);
+    // Events handled in clearing phase now
     setNext(stateRef.current.next as unknown as [string, string]);
     setHold(stateRef.current.hold as unknown as [string, string] | null);
     setCanHold(stateRef.current.canHold);
@@ -353,5 +335,5 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     setShake(false);
   }, [mode, opts?.sameSeed]);
 
-  return { grid, score, chains, ghost, fallingPositions, dropTrail, shake, moveLeft, moveRight, softDrop, rotate, holdAction, hardDrop, restart, next, hold, canHold, timeLeft, gameOver, events, seed, isResolving } as const;
+  return { grid, score, chains, ghost, fallingPositions, dropTrail, shake, moveLeft, moveRight, softDrop, rotate, holdAction, hardDrop, restart, next, hold, canHold, timeLeft, gameOver, events, seed } as const;
 }

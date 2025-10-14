@@ -49,7 +49,6 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
     gameOver,
     dropTrail,
     shake,
-    isResolving,
   } = useGameLoop(active, params.mode, {
     hapticsEnabled: settings?.haptics !== false,
     sameSeed: params?.sameSeed,
@@ -89,7 +88,7 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
     };
   }, [navigation]);
 
-  const blocked = gameOver || !active || isResolving;
+  const blocked = gameOver || !active;
 
   const pan = Gesture.Pan()
     .minDistance(12)

@@ -10,6 +10,18 @@ export type FallingPair = {
   rotation: 0 | 1 | 2 | 3; // 0: cells[0,1] horizontal, 1: cells[0,1] vertical, 2: cells[1,0] horizontal, 3: cells[1,0] vertical
 };
 
+export type GamePhase = 
+  | { type: 'falling' } // Pair is falling
+  | { type: 'gravity' } // Blocks are settling after lock/clear
+  | { type: 'matching'; chainNumber: number } // Detecting matches
+  | { type: 'clearing'; chainNumber: number }; // Animating clears (waiting for animation)
+
+export type ChainState = {
+  totalStars: number;
+  chainCount: number;
+  clearedGrid: BlockCell[][] | null; // Grid after clearing, waiting to apply
+};
+
 export type EngineState = {
   grid: BlockCell[][];
   falling: FallingPair | null;
@@ -18,6 +30,8 @@ export type EngineState = {
   canHold: boolean;
   seed: number;
   rng: () => number;
+  phase: GamePhase;
+  chainState: ChainState;
 };
 
 export type TickResult = {
@@ -26,6 +40,7 @@ export type TickResult = {
   next: [BlockType, BlockType];
   hold: [BlockType, BlockType] | null;
   canHold: boolean;
+  phase: GamePhase;
   scoredStars?: number;
   chains?: number;
   events?: GameEvent[];
@@ -36,6 +51,7 @@ export type GameEvent =
   | { type: 'lock'; positions: { x: number; y: number }[] }
   | { type: 'clear'; positions: { x: number; y: number }[]; cells?: { x: number; y: number; type: BlockType; cracked?: boolean }[]; chain: number }
   | { type: 'bomb'; rows: number[]; cells?: { x: number; y: number; type: BlockType; cracked?: boolean }[]; chain: number }
+  | { type: 'gravity'; falls: { x: number; fromY: number; toY: number }[]; chain: number }
   | { type: 'hardDropTrail'; positions: { x: number; y: number }[] }
   | { type: 'boardShake' };
 
@@ -71,6 +87,8 @@ export function initialEngineState(seed: number = Math.floor(Math.random() * 0x7
     canHold: true,
     seed,
     rng,
+    phase: { type: 'falling' },
+    chainState: { totalStars: 0, chainCount: 0, clearedGrid: null },
   };
 }
 
@@ -166,19 +184,26 @@ export function lockPair(grid: BlockCell[][], pair: FallingPair): BlockCell[][] 
   return g;
 }
 
-export function applyGravity(grid: BlockCell[][]): BlockCell[][] {
+// Tick-based gravity: move blocks down by 1 row, return true if any block moved
+export function applyGravityStep(grid: BlockCell[][]): { grid: BlockCell[][]; didMove: boolean; falls: { x: number; fromY: number; toY: number }[] } {
   const g = grid.map(r => r.slice());
+  let didMove = false;
+  const falls: { x: number; fromY: number; toY: number }[] = [];
+  
+  // Scan bottom-to-top to avoid moving the same block twice
   for (let x = 0; x < GRID_COLS; x++) {
     for (let y = GRID_ROWS - 2; y >= 0; y--) {
       if (g[y][x] && !g[y + 1][x]) {
-        let ny = y;
-        while (ny + 1 < GRID_ROWS && !g[ny + 1][x]) ny++;
-        g[ny][x] = g[y][x];
+        // Move block down by 1
+        g[y + 1][x] = g[y][x];
         g[y][x] = null;
+        falls.push({ x, fromY: y, toY: y + 1 });
+        didMove = true;
       }
     }
   }
-  return g;
+  
+  return { grid: g, didMove, falls };
 }
 
 export function overlayPair(grid: BlockCell[][], pair: FallingPair | null): BlockCell[][] {
@@ -399,199 +424,357 @@ function dropBonusStars(grid: BlockCell[][], count: number): BlockCell[][] {
   return g;
 }
 
-function resolveMatchesAndGravity(grid: BlockCell[][]): { grid: BlockCell[][]; totalStars: number; chains: number; events: GameEvent[] } {
+// Process one step of matching (no gravity, no looping)
+// Returns the grid after clearing/cracking, stars earned, and events generated
+function processMatches(grid: BlockCell[][], chainNumber: number): { 
+  grid: BlockCell[][]; 
+  starsEarned: number; 
+  hadMatches: boolean;
+  events: GameEvent[];
+} {
+  const { clearSet, bricksToCrack, bricksToEliminate, bombRows } = detectMatches(grid);
+  const hadMatches = clearSet.size > 0 || bricksToCrack.size > 0 || bricksToEliminate.size > 0;
+  
+  if (!hadMatches) {
+    return { grid, starsEarned: 0, hadMatches: false, events: [] };
+  }
+  
+  console.log(`✨ [MATCH] Chain ${chainNumber}`, {
+    cleared: clearSet.size,
+    bricksCracked: bricksToCrack.size,
+    bricksEliminated: bricksToEliminate.size,
+    bombRows: Array.from(bombRows),
+  });
+  
   let g = grid;
-  let totalStars = 0;
-  let chains = 0;
   const events: GameEvent[] = [];
   const fromKey = (s: string) => s.split(',').map(Number) as [number, number];
-
-  while (true) {
-    const { clearSet, bricksToCrack, bricksToEliminate, bombRows } = detectMatches(g);
-    if (clearSet.size === 0 && bricksToCrack.size === 0 && bricksToEliminate.size === 0) break;
-    
-    if (clearSet.size > 0 || bricksToCrack.size > 0 || bricksToEliminate.size > 0 || bombRows.size > 0) {
-      console.log(`✨ [MATCH] Chain ${chains + 1}`, {
-        cleared: clearSet.size,
-        bricksCracked: bricksToCrack.size,
-        bricksEliminated: bricksToEliminate.size,
-        bombRows: Array.from(bombRows),
-      });
-    }
-
-    // Crack hard blocks (first sandwich)
-    if (bricksToCrack.size > 0) {
-      const g2 = g.map(r => r.slice());
-      bricksToCrack.forEach((s) => {
-        const [x, y] = fromKey(s);
-        if (inBounds(x, y) && g2[y][x]) {
-          g2[y][x] = { type: BlockType.BRICK, cracked: true };
-        }
-      });
-      g = g2;
-    }
-
-    if (clearSet.size > 0 || bricksToEliminate.size > 0) {
-      // Collect cells for flashing before removal
-      const flashCells: { x: number; y: number; type: BlockType; cracked?: boolean }[] = [];
-      clearSet.forEach((s) => {
-        const [fx, fy] = fromKey(s);
-        const c = g[fy]?.[fx];
-        if (c) flashCells.push({ x: fx, y: fy, type: c.type, cracked: (c as any).cracked });
-      });
-      bricksToEliminate.forEach((s) => {
-        const [fx, fy] = fromKey(s);
-        const c = g[fy]?.[fx];
-        if (c) flashCells.push({ x: fx, y: fy, type: c.type, cracked: (c as any).cracked });
-      });
-      // Count only Star blocks and eliminated Hard blocks for score (Friend blocks give no points)
-      let starsCleared = 0;
-      clearSet.forEach((s) => {
-        const [x, y] = fromKey(s);
-        if (inBounds(x, y)) {
-          const cell = g[y][x];
-          if (cell?.type === BlockType.STAR) starsCleared++;
-        }
-      });
-      bricksToEliminate.forEach((s) => {
-        const [x, y] = fromKey(s);
-        if (inBounds(x, y)) starsCleared++; // Hard blocks count as stars when eliminated
-      });
-      
-      totalStars += starsCleared;
-      
-      const g3 = g.map(r => r.slice());
-      const positions: { x: number; y: number }[] = [];
-      clearSet.forEach((s) => {
-        const [x, y] = fromKey(s);
-        if (inBounds(x, y)) g3[y][x] = null;
-        positions.push({ x, y });
-      });
-      // Also eliminate the hard blocks
-      bricksToEliminate.forEach((s) => {
-        const [x, y] = fromKey(s);
-        if (inBounds(x, y)) {
-          g3[y][x] = null;
-          positions.push({ x, y });
-        }
-      });
-      g = g3;
-      events.push({ type: 'clear', positions, cells: flashCells, chain: chains + 1 });
-    }
-
-    if (bombRows.size > 0) {
-      const bombCells: { x: number; y: number; type: BlockType; cracked?: boolean }[] = [];
-      bombRows.forEach((row) => {
-        for (let cx = 0; cx < GRID_COLS; cx++) {
-          const c = g[row]?.[cx];
-          if (c) bombCells.push({ x: cx, y: row, type: c.type, cracked: (c as any).cracked });
-        }
-      });
-      events.push({ type: 'bomb', rows: Array.from(bombRows), cells: bombCells, chain: chains + 1 });
-    }
-
-    chains += 1;
-    g = applyGravity(g);
-    
-    // Add bonus stars after chain resolves (but before checking for new matches)
-    if (chains >= 2) {
-      let bonusStars = 0;
-      switch (chains) {
-        case 2: bonusStars = 2; break;
-        case 3: bonusStars = 4; break;
-        case 4: bonusStars = 5; break;
-        case 5: bonusStars = 6; break;
-        default: bonusStars = 12; break; // Chain 6+
+  
+  // Crack hard blocks (first sandwich)
+  if (bricksToCrack.size > 0) {
+    const g2 = g.map(r => r.slice());
+    bricksToCrack.forEach((s) => {
+      const [x, y] = fromKey(s);
+      if (inBounds(x, y) && g2[y][x]) {
+        g2[y][x] = { type: BlockType.BRICK, cracked: true };
       }
-      console.log(`⭐ [BONUS STARS] Chain ${chains} → ${bonusStars} stars dropped`);
-      g = dropBonusStars(g, bonusStars);
-      g = applyGravity(g); // Apply gravity after dropping bonus stars
-    }
+    });
+    g = g2;
   }
-  return { grid: g, totalStars, chains, events };
+  
+  let starsEarned = 0;
+  
+  // Clear blocks and eliminate cracked bricks
+  if (clearSet.size > 0 || bricksToEliminate.size > 0) {
+    const flashCells: { x: number; y: number; type: BlockType; cracked?: boolean }[] = [];
+    clearSet.forEach((s) => {
+      const [fx, fy] = fromKey(s);
+      const c = g[fy]?.[fx];
+      if (c) flashCells.push({ x: fx, y: fy, type: c.type, cracked: (c as any).cracked });
+    });
+    bricksToEliminate.forEach((s) => {
+      const [fx, fy] = fromKey(s);
+      const c = g[fy]?.[fx];
+      if (c) flashCells.push({ x: fx, y: fy, type: c.type, cracked: (c as any).cracked });
+    });
+    
+    // Count stars
+    clearSet.forEach((s) => {
+      const [x, y] = fromKey(s);
+      if (inBounds(x, y)) {
+        const cell = g[y][x];
+        if (cell?.type === BlockType.STAR) starsEarned++;
+      }
+    });
+    bricksToEliminate.forEach(() => starsEarned++); // Hard blocks = 1 star each
+    
+    const g3 = g.map(r => r.slice());
+    const positions: { x: number; y: number }[] = [];
+    clearSet.forEach((s) => {
+      const [x, y] = fromKey(s);
+      if (inBounds(x, y)) {
+        g3[y][x] = null;
+        positions.push({ x, y });
+      }
+    });
+    bricksToEliminate.forEach((s) => {
+      const [x, y] = fromKey(s);
+      if (inBounds(x, y)) {
+        g3[y][x] = null;
+        positions.push({ x, y });
+      }
+    });
+    
+    g = g3;
+    events.push({ type: 'clear', positions, cells: flashCells, chain: chainNumber });
+  }
+  
+  // Bomb clears
+  if (bombRows.size > 0) {
+    const bombCells: { x: number; y: number; type: BlockType; cracked?: boolean }[] = [];
+    bombRows.forEach((row) => {
+      for (let cx = 0; cx < GRID_COLS; cx++) {
+        const c = g[row]?.[cx];
+        if (c) bombCells.push({ x: cx, y: row, type: c.type, cracked: (c as any).cracked });
+      }
+    });
+    events.push({ type: 'bomb', rows: Array.from(bombRows), cells: bombCells, chain: chainNumber });
+  }
+  
+  return { grid: g, starsEarned, hadMatches: true, events };
 }
 
 function raiseHandRow(grid: BlockCell[][], rng: () => number): BlockCell[][] {
   const newGrid = grid.map(r => r.slice());
   
-  // Generate a bottom row with random blocks
+  // Generate a bottom row with random blocks (no empties)
   const bottomRow: BlockCell[] = Array.from({ length: GRID_COLS }, () => {
     const r = rng();
-    if (r < 0.15) return { type: BlockType.STAR };
-    if (r < 0.45) return { type: randFriend(rng) };
-    if (r < 0.5) return { type: BlockType.BRICK };
-    return null;
+    // No empties: renormalize original 15%/30%/5% (non-empty 50%) → 30%/60%/10%
+    if (r < 0.3) return { type: BlockType.STAR };
+    if (r < 0.9) return { type: randFriend(rng) };
+    return { type: BlockType.BRICK };
   });
+  // Add a complete Brick row above the RNG row
+  const brickRow: BlockCell[] = Array.from({ length: GRID_COLS }, () => ({ type: BlockType.BRICK }));
   
-  // Shift all rows up (remove top row, add bottom row)
+  // Shift all rows up by two (remove top two rows), then add Brick row above RNG row (RNG is the bottom-most of the two)
   newGrid.shift();
+  newGrid.shift();
+  newGrid.push(brickRow);
   newGrid.push(bottomRow);
   
   return newGrid;
 }
 
 export function tick(state: EngineState): TickResult {
-  let { grid, falling, next, hold, canHold, rng } = state;
+  let { grid, falling, next, hold, canHold, rng, phase, chainState } = state;
   
-  if (!falling) {
-    const newFalling = spawnPairFromCells(next);
-    console.log('🎮 [SPAWN]', {
-      cells: newFalling.cells,
-      position: { x: newFalling.x, y: newFalling.y },
-      orientation: newFalling.orientation,
-      rotation: newFalling.rotation,
+  // ===== FALLING PHASE: Pair is falling =====
+  if (phase.type === 'falling') {
+    // Spawn new pair if none exists
+    if (!falling) {
+      const newFalling = spawnPairFromCells(next);
+      console.log('🎮 [SPAWN]', {
+        cells: newFalling.cells,
+        position: { x: newFalling.x, y: newFalling.y },
+        orientation: newFalling.orientation,
+        rotation: newFalling.rotation,
+      });
+      
+      // Game over if spawn blocked
+      const spawnPositions = pairPositions(newFalling);
+      if (!canPlace(grid, spawnPositions)) {
+        console.log('💀 [GAME OVER] - Spawn columns blocked');
+        return { 
+          grid, 
+          falling: null, 
+          next, 
+          hold, 
+          canHold, 
+          phase: { type: 'falling' },
+          scoredStars: 0, 
+          chains: 0, 
+          events: [], 
+          gameOver: true 
+        };
+      }
+      return { 
+        grid, 
+        falling: newFalling, 
+        next: generatePairCells(rng), 
+        hold, 
+        canHold: true,
+        phase: { type: 'falling' },
+        scoredStars: 0, 
+        chains: 0, 
+        events: [] 
+      };
+    }
+    
+    // Try to move pair down
+    if (canMove(grid, falling, 0, 1)) {
+      console.log('⬇️  [FALL] y:', falling.y, '→', falling.y + 1);
+      return { 
+        grid, 
+        falling: { ...falling, y: falling.y + 1 }, 
+        next, 
+        hold, 
+        canHold,
+        phase: { type: 'falling' },
+        scoredStars: 0, 
+        chains: 0, 
+        events: [] 
+      };
+    }
+    
+    // Can't move down - lock and enter gravity phase
+    console.log('🔒 [LOCK]', {
+      position: { x: falling.x, y: falling.y },
+      cells: falling.cells,
+      rotation: falling.rotation,
     });
     
-    // Game over if columns 3 or 4 (0-indexed: 2 or 3) are blocked at the top (row 0)
-    const spawnPositions = pairPositions(newFalling);
-    if (!canPlace(grid, spawnPositions)) {
-      console.log('💀 [GAME OVER] - Spawn columns blocked');
-      return { grid, falling: null, next, hold, canHold, scoredStars: 0, chains: 0, events: [], gameOver: true };
+    const lockedGrid = lockPair(grid, falling);
+    
+    return {
+      grid: lockedGrid,
+      falling: null,
+      next,
+      hold,
+      canHold: true,
+      phase: { type: 'gravity' },
+      scoredStars: 0,
+      chains: 0,
+      events: []
+    };
+  }
+  
+  // ===== GRAVITY PHASE: Blocks falling =====
+  if (phase.type === 'gravity') {
+    const { grid: newGrid, didMove, falls } = applyGravityStep(grid);
+    
+    if (didMove) {
+      // Blocks moved, continue gravity phase
+      console.log('⬇️  [GRAVITY] blocks falling');
+      // Gravity happens in real-time, no need to store events for animation
+      return {
+        grid: newGrid,
+        falling: null,
+        next,
+        hold,
+        canHold,
+        phase: { type: 'gravity' },
+        scoredStars: 0,
+        chains: 0,
+        events: []
+      };
     }
-    return { grid, falling: newFalling, next: generatePairCells(rng), hold, canHold: true, scoredStars: 0, chains: 0, events: [] };
+    
+    // No blocks moved - gravity settled, enter matching phase
+    console.log('⬇️  [GRAVITY] settled');
+    return {
+      grid: newGrid,
+      falling: null,
+      next,
+      hold,
+      canHold,
+      phase: { type: 'matching', chainNumber: chainState.chainCount + 1 },
+      scoredStars: 0,
+      chains: 0,
+      events: []
+    };
   }
   
-  if (canMove(grid, falling, 0, 1)) {
-    console.log('⬇️  [FALL] y:', falling.y, '→', falling.y + 1);
-    return { grid, falling: { ...falling, y: falling.y + 1 }, next, hold, canHold, scoredStars: 0, chains: 0, events: [] };
-  }
-  
-  console.log('🔒 [LOCK]', {
-    position: { x: falling.x, y: falling.y },
-    cells: falling.cells,
-    rotation: falling.rotation,
-  });
-  
-  const g2 = lockPair(grid, falling);
-  const lockPositions = pairPositions(falling);
-  const g3 = applyGravity(g2);
-  const { grid: g4, totalStars, chains, events } = resolveMatchesAndGravity(g3);
-  
-  if (chains > 0) {
-    console.log('🔗 [CHAINS]', {
-      chains,
-      stars: totalStars,
-      events: events.map(e => e.type),
+  // ===== MATCHING PHASE: Detect matches and trigger animations =====
+  if (phase.type === 'matching') {
+    const { grid: clearedGrid, starsEarned, hadMatches, events } = processMatches(grid, phase.chainNumber);
+    
+    if (hadMatches) {
+      // Matches found - enter clearing phase to animate
+      chainState.totalStars += starsEarned;
+      chainState.chainCount = phase.chainNumber;
+      chainState.clearedGrid = clearedGrid; // Store cleared grid
+      
+      console.log('🔗 [CHAIN]', {
+        chain: chainState.chainCount,
+        starsThisChain: starsEarned,
+        totalStars: chainState.totalStars,
+      });
+      
+      // Enter clearing phase - wait for animations
+      return {
+        grid, // Keep OLD grid visible during animation
+        falling: null,
+        next,
+        hold,
+        canHold,
+        phase: { type: 'clearing', chainNumber: phase.chainNumber },
+        scoredStars: 0,
+        chains: 0,
+        events // Return clear/bomb events for animation
+      };
+    }
+    
+    // No matches - chains complete
+    console.log('✅ [RESOLUTION COMPLETE]', {
+      totalChains: chainState.chainCount,
+      totalStars: chainState.totalStars,
     });
+    
+    let finalGrid = grid;
+    
+    // Hand row only if no chains occurred
+    if (chainState.chainCount === 0) {
+      const handChance = rng();
+      if (handChance < 0.1) {
+        console.log('✊ [HAND ROW] - Adding random row from bottom');
+        finalGrid = raiseHandRow(grid, rng);
+      }
+    }
+    
+    // Return to falling phase with results
+    return {
+      grid: finalGrid,
+      falling: null,
+      next,
+      hold,
+      canHold,
+      phase: { type: 'falling' },
+      scoredStars: chainState.totalStars,
+      chains: chainState.chainCount,
+      events: []
+    };
   }
   
-  // Random chance to add a Hand row after pair lands and chains resolve
-  let finalGrid = g4;
-  const handChance = rng();
-  if (handChance < 0.1) { // 10% chance (adjust based on difficulty)
-    console.log('✊ [HAND ROW] - Adding random row from bottom');
-    finalGrid = raiseHandRow(g4, rng);
+  // ===== CLEARING PHASE: Wait for animation to complete, then apply cleared grid =====
+  if (phase.type === 'clearing') {
+    // Animation should be playing - this tick just applies the cleared grid and moves to gravity
+    console.log('✨ [CLEAR COMPLETE] Applying cleared grid');
+    
+    let finalGrid = chainState.clearedGrid || grid;
+    chainState.clearedGrid = null;
+    
+    // Drop bonus stars if chain >= 2
+    if (chainState.chainCount >= 2) {
+      let bonusStars = 0;
+      switch (chainState.chainCount) {
+        case 2: bonusStars = 2; break;
+        case 3: bonusStars = 4; break;
+        case 4: bonusStars = 5; break;
+        case 5: bonusStars = 6; break;
+        default: bonusStars = 12; break;
+      }
+      console.log(`⭐ [BONUS STARS] Chain ${chainState.chainCount} → ${bonusStars} stars dropped`);
+      finalGrid = dropBonusStars(finalGrid, bonusStars);
+    }
+    
+    // Back to gravity phase to settle blocks
+    return {
+      grid: finalGrid,
+      falling: null,
+      next,
+      hold,
+      canHold,
+      phase: { type: 'gravity' },
+      scoredStars: 0,
+      chains: 0,
+      events: []
+    };
   }
   
+  // Should never reach here
+  console.error('❌ [ERROR] Unknown phase:', phase);
   return {
-    grid: finalGrid,
-    falling: null,
+    grid,
+    falling,
     next,
     hold,
-    canHold: true,
-    scoredStars: totalStars,
-    chains,
-    events: [{ type: 'lock', positions: lockPositions }, ...events],
+    canHold,
+    phase,
+    scoredStars: 0,
+    chains: 0,
+    events: []
   };
 }
 

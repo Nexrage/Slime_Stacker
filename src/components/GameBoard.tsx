@@ -94,12 +94,11 @@ const Cell: React.FC<{
   blockType: BlockType | null;
   w: number;
   h: number;
-  isClearing: boolean;
   shake: boolean;
   flash?: boolean;
   bobFrame?: 0 | 1;
   cracked?: boolean;
-}> = ({ blockType, w, h, isClearing, shake, flash, bobFrame = 0, cracked }) => {
+}> = ({ blockType, w, h, shake, flash = false, bobFrame = 0, cracked = false }) => {
   const opacity = useSharedValue(1);
   const translateX = useSharedValue(0);
   const [flashFrame, setFlashFrame] = useState<0 | 1>(0);
@@ -107,17 +106,37 @@ const Cell: React.FC<{
     opacity: opacity.value,
     transform: [{ translateX: translateX.value }],
   }));
+
+  // Unified clear animation: sprite blink + fade out
   useEffect(() => {
-    if (isClearing) {
+    let blinkInterval: any;
+    if (flash) {
+      console.log('🎬 [ANIMATION] Clear block animation (blink sprites then fade out)');
+
+      // Start sprite blinking immediately
+      setFlashFrame(0);
+      blinkInterval = setInterval(() => {
+        setFlashFrame(prev => (prev === 0 ? 1 : 0));
+      }, 100);
+
+      // Fade out after blink is visible (200ms)
       opacity.value = withSequence(
-        withTiming(0.2, { duration: 60 }),
-        withTiming(1, { duration: 60 }),
-        withTiming(0, { duration: 180 })
+        withDelay(
+          200,
+          withSequence(
+            withTiming(0.5, { duration: 60 }),
+            withTiming(1, { duration: 60 }),
+            withTiming(0, { duration: 180 })
+          )
+        )
       );
     } else {
+      setFlashFrame(0);
       opacity.value = withTiming(1, { duration: 120 });
     }
-  }, [isClearing]);
+    return () => blinkInterval && clearInterval(blinkInterval);
+  }, [flash]);
+
   useEffect(() => {
     if (shake) {
       translateX.value = withSequence(
@@ -129,19 +148,6 @@ const Cell: React.FC<{
       translateX.value = withTiming(0, { duration: 120 });
     }
   }, [shake]);
-
-  useEffect(() => {
-    let int: any;
-    if (flash) {
-      setFlashFrame(0);
-      int = setInterval(() => {
-        setFlashFrame(prev => (prev === 0 ? 1 : 0));
-      }, 1000);
-    } else {
-      setFlashFrame(0);
-    }
-    return () => int && clearInterval(int);
-  }, [flash]);
 
   const imageSource = flash
     ? imageForBlockCellFlash(blockType ? { type: blockType } : null, flashFrame)
@@ -182,24 +188,44 @@ export const GameBoard: React.FC<{
   const isGhost = (x: number, y: number) => ghost.some(p => p.x === x && p.y === y);
   const isFalling = (x: number, y: number) => falling.some(p => p.x === x && p.y === y);
   const isTrail = (x: number, y: number) => dropTrail.some(p => p.x === x && p.y === y);
-  const clearingPositions = useMemo(() => {
-    const set = new Set<string>();
-    events.forEach(e => {
-      if (e.type === 'clear') {
-        e.positions.forEach((p: { x: number; y: number }) => set.add(`${p.x},${p.y}`));
-      }
-    });
-    return set;
-  }, [events]);
+  // Removed clearingPositions - flash handles the entire clear animation now
   const bombRows = useMemo(() => {
     const rows = new Set<number>();
     events.forEach(e => {
-      if (e.type === 'bomb') e.rows.forEach((r: number) => rows.add(r));
+      if (e.type === 'bomb') {
+        console.log('🎬 [ANIMATION] Bomb animation for rows:', e.rows);
+        e.rows.forEach((r: number) => rows.add(r));
+      }
     });
     return rows;
   }, [events]);
+  const gravityFalls = useMemo(() => {
+    // Map destination key "x,y" -> number of cells fallen
+    const map = new Map<string, number>();
+    events.forEach(e => {
+      if (e.type === 'gravity' && Array.isArray((e as any).falls)) {
+        const falls = (e as any).falls as { x: number; fromY: number; toY: number }[];
+        console.log(
+          '🎬 [ANIMATION] Gravity animation for falls:',
+          falls.map(f => `(${f.x},${f.fromY}→${f.toY})`)
+        );
+        falls.forEach(f => {
+          const key = `${f.x},${f.toY}`;
+          const dy = Math.max(0, f.toY - f.fromY);
+          if (dy > 0) map.set(key, dy);
+        });
+      }
+    });
+    return map;
+  }, [events]);
   const flashTargets = useMemo(() => {
     const set = new Set<string>();
+    const hasFlashEvents = events.some(
+      e => (e.type === 'clear' || e.type === 'bomb') && (e as any).cells
+    );
+    if (hasFlashEvents) {
+      console.log('🎬 [ANIMATION] Flash animation triggered');
+    }
     events.forEach(e => {
       if (e.type === 'clear' || e.type === 'bomb') {
         const cells = (e as any).cells as { x: number; y: number }[] | undefined;
@@ -287,7 +313,6 @@ export const GameBoard: React.FC<{
                 const ghostCell = isGhost(x, y) && !cell;
                 const trailCell = isTrail(x, y) && !cell;
                 const keyStr = `${x},${y}`;
-                const isClearing = clearingPositions.has(keyStr);
                 const shake = bombRows.has(y);
                 const fallAnim = isFalling(x, y);
                 const flash = flashTargets.has(keyStr);
@@ -296,6 +321,15 @@ export const GameBoard: React.FC<{
                 const renderType = flash ? flashTypeMap.get(keyStr) ?? baseType : baseType;
                 // For ghost/trail, show empty or faint overlay; if flashing, force render
                 const displayType = flash ? renderType : ghostCell || trailCell ? null : renderType;
+
+                // Gravity fall amount for this destination cell (in cells)
+                const gravityDyCells = gravityFalls.get(keyStr) || 0;
+                const gravityDyPx = gravityDyCells > 0 ? gravityDyCells * cellSize : 0;
+
+                // During interim chain step, bob cells that are about to fall (have empty space below)
+                const isInterim = Array.isArray(events) && events.length > 0;
+                const hasEmptyBelow = y + 1 < rows && !grid[y + 1][x];
+                const shouldBob = fallAnim || (isInterim && hasEmptyBelow && !!baseType && !flash);
 
                 return (
                   <Box
@@ -306,18 +340,19 @@ export const GameBoard: React.FC<{
                       opacity: flash ? 1 : ghostCell ? 0.3 : trailCell ? 0.15 : 1,
                     }}
                   >
-                    <FallingWrapper active={fallAnim} cellSize={cellSize}>
-                      <Cell
-                        blockType={displayType}
-                        w={cellSize}
-                        h={cellSize}
-                        isClearing={isClearing}
-                        shake={shake}
-                        flash={flash}
-                        bobFrame={fallAnim ? globalBobFrame : 0}
-                        cracked={cracked}
-                      />
-                    </FallingWrapper>
+                    <GravityWrapper offsetPx={gravityDyPx} durationMs={350}>
+                      <FallingWrapper active={fallAnim} cellSize={cellSize}>
+                        <Cell
+                          blockType={displayType}
+                          w={cellSize}
+                          h={cellSize}
+                          shake={shake}
+                          flash={flash}
+                          bobFrame={shouldBob ? globalBobFrame : 0}
+                          cracked={cracked}
+                        />
+                      </FallingWrapper>
+                    </GravityWrapper>
                   </Box>
                 );
               })}
@@ -341,6 +376,7 @@ const FallingWrapper: React.FC<{ active: boolean; cellSize: number; children: Re
 
     useEffect(() => {
       if (active) {
+        console.log('🎬 [ANIMATION] Falling piece pulse animation started');
         // Subtle pulsing effect to indicate active falling piece
         scale.value = withRepeat(
           withSequence(withTiming(1.05, { duration: 300 }), withTiming(1.0, { duration: 300 })),
@@ -360,3 +396,22 @@ const FallingWrapper: React.FC<{ active: boolean; cellSize: number; children: Re
 
     return <Animated.View style={style}>{children}</Animated.View>;
   });
+
+const GravityWrapper: React.FC<{
+  offsetPx: number;
+  durationMs: number;
+  children: React.ReactNode;
+}> = ({ offsetPx, durationMs, children }) => {
+  const ty = useSharedValue(0);
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
+  useEffect(() => {
+    if (offsetPx > 0) {
+      console.log(`🎬 [ANIMATION] Gravity drop animation: ${offsetPx}px over ${durationMs}ms`);
+      ty.value = -offsetPx; // start above destination by the fall distance
+      ty.value = withTiming(0, { duration: durationMs });
+    } else {
+      ty.value = 0;
+    }
+  }, [offsetPx, durationMs]);
+  return <Animated.View style={style}>{children}</Animated.View>;
+};
