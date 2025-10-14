@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { Box, Image } from '@gluestack-ui/themed';
+import { Box, Image, Text } from '@gluestack-ui/themed';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -174,7 +174,18 @@ export const GameBoard: React.FC<{
   dropTrail?: { x: number; y: number }[];
   shakeBoard?: boolean;
   events?: { type: string; [k: string]: any }[];
-}> = ({ grid, ghost = [], falling = [], dropTrail = [], shakeBoard = false, events = [] }) => {
+  bonusStars?: { x: number; y: number; currentY: number }[];
+  chains?: number;
+}> = ({
+  grid,
+  ghost = [],
+  falling = [],
+  dropTrail = [],
+  shakeBoard = false,
+  events = [],
+  bonusStars = [],
+  chains = 0,
+}) => {
   const [container, setContainer] = React.useState<{ width: number; height: number }>({
     width: 0,
     height: 0,
@@ -186,6 +197,17 @@ export const GameBoard: React.FC<{
   const isGhost = (x: number, y: number) => ghost.some(p => p.x === x && p.y === y);
   const isFalling = (x: number, y: number) => falling.some(p => p.x === x && p.y === y);
   const isTrail = (x: number, y: number) => dropTrail.some(p => p.x === x && p.y === y);
+  const isBonusStar = (x: number, y: number) => bonusStars.some(s => s.x === x && s.currentY === y);
+
+  // Log bonus stars when they appear
+  useEffect(() => {
+    if (bonusStars.length > 0) {
+      console.log(
+        '🎬 [ANIMATION] Bonus stars falling:',
+        bonusStars.map(s => `(${s.x},${s.currentY}→${s.y})`)
+      );
+    }
+  }, [bonusStars]);
   // Removed clearingPositions - flash handles the entire clear animation now
   const bombRows = useMemo(() => {
     const rows = new Set<number>();
@@ -245,6 +267,20 @@ export const GameBoard: React.FC<{
     });
     return map;
   }, [events]);
+
+  // Get first clearing block position for chain popover
+  const chainPopoverPosition = useMemo(() => {
+    if (chains <= 0) return null;
+
+    // Get first flash target
+    const firstFlash = Array.from(flashTargets)[0];
+    if (!firstFlash) return null;
+
+    const [x, y] = firstFlash.split(',').map(Number);
+    console.log(`🎯 [CHAIN POPOVER] Displaying "Chain x${chains}" at position (${x}, ${y})`);
+    return { x, y, chain: chains };
+  }, [chains, flashTargets]);
+
   const boardTx = useSharedValue(0);
   const boardStyle = useAnimatedStyle(() => ({ transform: [{ translateX: boardTx.value }] }));
   const [globalBobFrame, setGlobalBobFrame] = React.useState<0 | 1>(0);
@@ -312,15 +348,22 @@ export const GameBoard: React.FC<{
             {row.map((cell, x) => {
               const ghostCell = isGhost(x, y) && !cell;
               const trailCell = isTrail(x, y) && !cell;
+              const bonusStarCell = isBonusStar(x, y);
               const keyStr = `${x},${y}`;
               const shake = bombRows.has(y);
-              const fallAnim = isFalling(x, y);
+              const fallAnim = isFalling(x, y) || bonusStarCell; // Bonus stars also animate like falling pieces
               const flash = flashTargets.has(keyStr);
               const baseType = cell?.type || null;
               const cracked = (cell as any)?.cracked === true;
               const renderType = flash ? flashTypeMap.get(keyStr) ?? baseType : baseType;
-              // For ghost/trail, show empty or faint overlay; if flashing, force render
-              const displayType = flash ? renderType : ghostCell || trailCell ? null : renderType;
+              // For ghost/trail, show empty or faint overlay; if flashing, force render; bonus stars always visible
+              const displayType = bonusStarCell
+                ? BlockType.STAR
+                : flash
+                ? renderType
+                : ghostCell || trailCell
+                ? null
+                : renderType;
 
               // Gravity fall amount for this destination cell (in cells)
               const gravityDyCells = gravityFalls.get(keyStr) || 0;
@@ -359,6 +402,42 @@ export const GameBoard: React.FC<{
           </Box>
         ))}
       </Animated.View>
+
+      {/* Chain popover over first clearing block */}
+      {chainPopoverPosition && (
+        <Box
+          style={{
+            position: 'absolute',
+            left: boardPadding + chainPopoverPosition.x * (cellSize + cellGap),
+            top: boardPadding + chainPopoverPosition.y * (cellSize + cellGap),
+            pointerEvents: 'none',
+          }}
+        >
+          <Box
+            style={{
+              backgroundColor: 'rgba(255, 215, 0, 0.95)',
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderWidth: 2,
+              borderColor: '#FFD700',
+            }}
+          >
+            <Text
+              size="lg"
+              bold
+              style={{
+                color: '#000',
+                textShadowColor: 'rgba(255,255,255,0.5)',
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 2,
+              }}
+            >
+              Chain x{chainPopoverPosition.chain}
+            </Text>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 };

@@ -35,6 +35,7 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
     ghost,
     fallingPositions,
     events,
+    bonusStars,
     moveLeft,
     moveRight,
     softDrop,
@@ -188,6 +189,8 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
             dropTrail={dropTrail}
             shakeBoard={shake}
             events={events}
+            bonusStars={bonusStars}
+            chains={chains}
           />
         </Box>
       </GestureDetector>
@@ -213,11 +216,6 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
               Score
             </Text>
             <Heading size="xl">{score}</Heading>
-            {chains > 0 && (
-              <Text size="sm" color="$success400">
-                Chain x{chains}
-              </Text>
-            )}
           </VStack>
         </HStack>
       </Box>

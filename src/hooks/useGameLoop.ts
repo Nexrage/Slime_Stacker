@@ -22,6 +22,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
   const [dropTrail, setDropTrail] = useState<{ x: number; y: number }[]>([]);
   const dropTrailTimer = useRef<any>(null);
   const [shake, setShake] = useState(false);
+  const [bonusStars, setBonusStars] = useState<{ x: number; y: number; currentY: number }[]>([]);
   // isResolving removed - clearing phase now pauses via setTimeout
 
   const timer = useRef<any>(null);
@@ -157,6 +158,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
         setCanHold(stateRef.current.canHold);
         setGhost(getGhostPositions(stateRef.current.grid, stateRef.current.falling));
         setFallingPositions(stateRef.current.falling ? pairPositions(stateRef.current.falling) : []);
+        setBonusStars(stateRef.current.phase.type === 'bonusStars' ? stateRef.current.phase.starPositions : []);
         setGrid(overlayPair(stateRef.current.grid, stateRef.current.falling));
         accumulated -= tickMs;
       }
@@ -205,6 +207,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     if (s.falling) s.falling = movePair(s.grid, s.falling, -1, 0);
     setGhost(getGhostPositions(s.grid, s.falling));
     setFallingPositions(s.falling ? pairPositions(s.falling) : []);
+    setBonusStars(s.phase.type === 'bonusStars' ? s.phase.starPositions : []);
     setGrid(overlayPair(s.grid, s.falling));
   }, [gameOver]);
   const moveRight = useCallback(() => {
@@ -213,6 +216,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     if (s.falling) s.falling = movePair(s.grid, s.falling, 1, 0);
     setGhost(getGhostPositions(s.grid, s.falling));
     setFallingPositions(s.falling ? pairPositions(s.falling) : []);
+    setBonusStars(s.phase.type === 'bonusStars' ? s.phase.starPositions : []);
     setGrid(overlayPair(s.grid, s.falling));
   }, [gameOver]);
   const softDrop = useCallback(() => {
@@ -221,6 +225,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     if (s.falling) s.falling = movePair(s.grid, s.falling, 0, 1);
     setGhost(getGhostPositions(s.grid, s.falling));
     setFallingPositions(s.falling ? pairPositions(s.falling) : []);
+    setBonusStars(s.phase.type === 'bonusStars' ? s.phase.starPositions : []);
     setGrid(overlayPair(s.grid, s.falling));
   }, [gameOver]);
   const rotate = useCallback(() => {
@@ -234,6 +239,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     }
     setGhost(getGhostPositions(s.grid, s.falling));
     setFallingPositions(s.falling ? pairPositions(s.falling) : []);
+    setBonusStars(s.phase.type === 'bonusStars' ? s.phase.starPositions : []);
     setGrid(overlayPair(s.grid, s.falling));
   }, [gameOver]);
   const holdAction = useCallback(() => {
@@ -245,6 +251,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     setCanHold(newState.canHold);
     setGhost(getGhostPositions(newState.grid, newState.falling));
     setFallingPositions(newState.falling ? pairPositions(newState.falling) : []);
+    setBonusStars(newState.phase.type === 'bonusStars' ? newState.phase.starPositions : []);
     setGrid(overlayPair(newState.grid, newState.falling));
   }, [gameOver]);
 
@@ -272,6 +279,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     setTimeout(() => setShake(false), 120);
     setGhost(getGhostPositions(s.grid, s.falling));
     setFallingPositions(s.falling ? pairPositions(s.falling) : []);
+    setBonusStars(s.phase.type === 'bonusStars' ? s.phase.starPositions : []);
     setGrid(overlayPair(s.grid, s.falling));
     // Advance one tick to lock and resolve
     const result = tick(s);
@@ -312,6 +320,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     setCanHold(stateRef.current.canHold);
     setGhost(getGhostPositions(stateRef.current.grid, stateRef.current.falling));
     setFallingPositions(stateRef.current.falling ? pairPositions(stateRef.current.falling) : []);
+    setBonusStars(stateRef.current.phase.type === 'bonusStars' ? stateRef.current.phase.starPositions : []);
     setGrid(overlayPair(stateRef.current.grid, stateRef.current.falling));
   }, [gameOver, opts?.hapticsEnabled]);
 
@@ -331,9 +340,10 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     setGameOver(false);
     setEvents([]);
     setFallingPositions([]);
+    setBonusStars([]);
     setDropTrail([]);
     setShake(false);
   }, [mode, opts?.sameSeed]);
 
-  return { grid, score, chains, ghost, fallingPositions, dropTrail, shake, moveLeft, moveRight, softDrop, rotate, holdAction, hardDrop, restart, next, hold, canHold, timeLeft, gameOver, events, seed } as const;
+  return { grid, score, chains, ghost, fallingPositions, dropTrail, shake, bonusStars, moveLeft, moveRight, softDrop, rotate, holdAction, hardDrop, restart, next, hold, canHold, timeLeft, gameOver, events, seed } as const;
 }

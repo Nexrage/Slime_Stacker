@@ -33,8 +33,7 @@ export const GameUI: React.FC<{
       <HStack justifyContent="space-between" style={{ borderColor: '#00aa00', borderWidth: 1 }}>
         <Text>Score {score}</Text>
         <Text>
-          {chains > 0 ? `Chain x${chains} • ` : ''}Level {level} {mode ? `• ${mode}` : ''}{' '}
-          {difficulty || ''}
+          Level {level} {mode ? `• ${mode}` : ''} {difficulty || ''}
         </Text>
       </HStack>
       <HStack
