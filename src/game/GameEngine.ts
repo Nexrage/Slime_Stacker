@@ -14,8 +14,7 @@ export type GamePhase =
   | { type: 'falling' } // Pair is falling
   | { type: 'gravity' } // Blocks are settling after lock/clear
   | { type: 'matching'; chainNumber: number } // Detecting matches
-  | { type: 'clearing'; chainNumber: number } // Animating clears (waiting for animation)
-  | { type: 'bonusStars'; starPositions: { x: number; y: number; currentY: number }[] }; // Bonus stars falling from top
+  | { type: 'clearing'; chainNumber: number }; // Animating clears (waiting for animation)
 
 export type ChainState = {
   totalStars: number;
@@ -440,30 +439,11 @@ function processMatches(grid: BlockCell[][], chainNumber: number): {
     return { grid, starsEarned: 0, hadMatches: false, events: [] };
   }
   
-  // Debug: Log the board state and what's being matched
-  console.log(`🔍 [DEBUG] Board state before match:`);
-  for (let y = 0; y < Math.min(5, GRID_ROWS); y++) {
-    const row = grid[y].map(cell => cell ? cell.type.substring(0, 1) : '.');
-    console.log(`  Row ${y}: [${row.join(' ')}]`);
-  }
-  
-  // Debug: Show what types of blocks are being cleared
-  const clearedTypes = new Map<string, number>();
-  clearSet.forEach(pos => {
-    const [x, y] = pos.split(',').map(Number);
-    if (inBounds(x, y) && grid[y][x]) {
-      const type = grid[y][x].type;
-      clearedTypes.set(type, (clearedTypes.get(type) || 0) + 1);
-    }
-  });
-  
   console.log(`✨ [MATCH] Chain ${chainNumber}`, {
     cleared: clearSet.size,
     bricksCracked: bricksToCrack.size,
     bricksEliminated: bricksToEliminate.size,
     bombRows: Array.from(bombRows),
-    clearedPositions: Array.from(clearSet).slice(0, 10), // Show first 10 positions
-    clearedTypes: Object.fromEntries(clearedTypes),
   });
   
   let g = grid;
@@ -749,13 +729,13 @@ export function tick(state: EngineState): TickResult {
   
   // ===== CLEARING PHASE: Wait for animation to complete, then apply cleared grid =====
   if (phase.type === 'clearing') {
-    // Animation should be playing - this tick just applies the cleared grid
+    // Animation should be playing - this tick just applies the cleared grid and moves to gravity
     console.log('✨ [CLEAR COMPLETE] Applying cleared grid');
     
     let finalGrid = chainState.clearedGrid || grid;
     chainState.clearedGrid = null;
     
-    // Check if we need to spawn bonus stars
+    // Drop bonus stars if chain >= 2
     if (chainState.chainCount >= 2) {
       let bonusStars = 0;
       switch (chainState.chainCount) {
@@ -765,105 +745,13 @@ export function tick(state: EngineState): TickResult {
         case 5: bonusStars = 6; break;
         default: bonusStars = 12; break;
       }
-      console.log(`⭐ [BONUS STARS] Chain ${chainState.chainCount} → ${bonusStars} stars spawning from top`);
-      
-      // Get target columns (least filled)
-      const columns = getLeastFilledColumns(finalGrid, 2);
-      const starsPerColumn = Math.floor(bonusStars / 2);
-      const remainder = bonusStars % 2;
-      
-      // Create star positions starting from top (y = 0)
-      const starPositions: { x: number; y: number; currentY: number }[] = [];
-      columns.forEach((x, idx) => {
-        const starsInColumn = starsPerColumn + (idx === 0 ? remainder : 0);
-        for (let i = 0; i < starsInColumn; i++) {
-          // Find target Y (lowest empty position in this column)
-          let targetY = -1;
-          for (let y = GRID_ROWS - 1; y >= 0; y--) {
-            if (!finalGrid[y][x]) {
-              targetY = y;
-              break;
-            }
-          }
-          if (targetY >= 0) {
-            starPositions.push({ x, y: targetY, currentY: 0 }); // Start at top (y=0)
-          }
-        }
-      });
-      
-      // Enter bonus star phase
-      console.log('⭐ [BONUS STARS PHASE] Entering with positions:', starPositions.map(s => `(${s.x},${s.currentY}→${s.y})`));
-      return {
-        grid: finalGrid,
-        falling: null,
-        next,
-        hold,
-        canHold,
-        phase: { type: 'bonusStars', starPositions },
-        scoredStars: 0,
-        chains: 0,
-        events: []
-      };
+      console.log(`⭐ [BONUS STARS] Chain ${chainState.chainCount} → ${bonusStars} stars dropped`);
+      finalGrid = dropBonusStars(finalGrid, bonusStars);
     }
     
-    // No bonus stars - back to gravity phase
+    // Back to gravity phase to settle blocks
     return {
       grid: finalGrid,
-      falling: null,
-      next,
-      hold,
-      canHold,
-      phase: { type: 'gravity' },
-      scoredStars: 0,
-      chains: 0,
-      events: []
-    };
-  }
-  
-  // ===== BONUS STARS PHASE: Stars falling from top to target positions =====
-  if (phase.type === 'bonusStars') {
-    const { starPositions } = phase;
-    let allSettled = true;
-    const bonusStarSpeed = 3; // Stars fall 3 rows per tick (much faster than normal 1 row/tick)
-    
-    const newPositions = starPositions.map(star => {
-      if (star.currentY < star.y) {
-        allSettled = false;
-        // Move down quickly, but don't overshoot target
-        const nextY = Math.min(star.currentY + bonusStarSpeed, star.y);
-        return { ...star, currentY: nextY };
-      }
-      return star;
-    });
-    
-    if (!allSettled) {
-      // Stars still falling
-      console.log('⭐ [BONUS STARS] falling fast', newPositions.filter(s => s.currentY < s.y).length, 'stars still falling');
-      return {
-        grid,
-        falling: null,
-        next,
-        hold,
-        canHold,
-        phase: { type: 'bonusStars', starPositions: newPositions },
-        scoredStars: 0,
-        chains: 0,
-        events: []
-      };
-    }
-    
-    // All stars settled - place them in grid
-    console.log('⭐ [BONUS STARS] settled - placing in grid');
-    const newGrid = grid.map(r => r.slice());
-    starPositions.forEach(star => {
-      if (star.y >= 0 && star.y < GRID_ROWS && star.x >= 0 && star.x < GRID_COLS) {
-        newGrid[star.y][star.x] = { type: BlockType.STAR };
-      }
-    });
-    
-    // Back to gravity phase to settle everything
-    return {
-      grid: newGrid,
       falling: null,
       next,
       hold,
