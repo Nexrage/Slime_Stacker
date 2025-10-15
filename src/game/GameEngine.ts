@@ -440,11 +440,30 @@ function processMatches(grid: BlockCell[][], chainNumber: number): {
     return { grid, starsEarned: 0, hadMatches: false, events: [] };
   }
   
+  // Debug: Log the board state and what's being matched
+  console.log(`🔍 [DEBUG] Board state before match:`);
+  for (let y = 0; y < Math.min(5, GRID_ROWS); y++) {
+    const row = grid[y].map(cell => cell ? cell.type.substring(0, 1) : '.');
+    console.log(`  Row ${y}: [${row.join(' ')}]`);
+  }
+  
+  // Debug: Show what types of blocks are being cleared
+  const clearedTypes = new Map<string, number>();
+  clearSet.forEach(pos => {
+    const [x, y] = pos.split(',').map(Number);
+    if (inBounds(x, y) && grid[y][x]) {
+      const type = grid[y][x].type;
+      clearedTypes.set(type, (clearedTypes.get(type) || 0) + 1);
+    }
+  });
+  
   console.log(`✨ [MATCH] Chain ${chainNumber}`, {
     cleared: clearSet.size,
     bricksCracked: bricksToCrack.size,
     bricksEliminated: bricksToEliminate.size,
     bombRows: Array.from(bombRows),
+    clearedPositions: Array.from(clearSet).slice(0, 10), // Show first 10 positions
+    clearedTypes: Object.fromEntries(clearedTypes),
   });
   
   let g = grid;

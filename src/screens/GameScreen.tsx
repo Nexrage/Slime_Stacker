@@ -190,7 +190,6 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
             shakeBoard={shake}
             events={events}
             bonusStars={bonusStars}
-            chains={chains}
           />
         </Box>
       </GestureDetector>

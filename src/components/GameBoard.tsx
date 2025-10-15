@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { Box, Image, Text } from '@gluestack-ui/themed';
+import { Box, Image, Spinner, Text } from '@gluestack-ui/themed';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -97,7 +97,8 @@ const Cell: React.FC<{
   flash?: boolean;
   bobFrame?: 0 | 1;
   cracked?: boolean;
-}> = ({ blockType, w, h, shake, flash = false, bobFrame = 0, cracked = false }) => {
+  chainNumber?: number;
+}> = ({ blockType, w, h, shake, flash = false, bobFrame = 0, cracked = false, chainNumber }) => {
   const opacity = useSharedValue(1);
   const translateX = useSharedValue(0);
   const [flashFrame, setFlashFrame] = useState<0 | 1>(0);
@@ -158,7 +159,31 @@ const Cell: React.FC<{
     <Animated.View
       style={[{ width: w, height: h, borderRadius: 4, overflow: 'hidden' }, animatedStyle]}
     >
-      {imageSource ? (
+      {flash && chainNumber ? (
+        <Box
+          style={{
+            width: w,
+            height: h,
+            backgroundColor: '#333',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 4,
+          }}
+        >
+          <Spinner size="small" color="$primary500" />
+          <Text
+            size="xs"
+            color="$white"
+            style={{
+              position: 'absolute',
+              fontSize: Math.max(8, w * 0.3),
+              fontWeight: 'bold',
+            }}
+          >
+            {chainNumber}
+          </Text>
+        </Box>
+      ) : imageSource ? (
         <Image source={imageSource} alt="Block" style={{ width: w, height: h }} />
       ) : (
         <Box style={{ width: w, height: h, backgroundColor: '#111' }} />
@@ -175,7 +200,6 @@ export const GameBoard: React.FC<{
   shakeBoard?: boolean;
   events?: { type: string; [k: string]: any }[];
   bonusStars?: { x: number; y: number; currentY: number }[];
-  chains?: number;
 }> = ({
   grid,
   ghost = [],
@@ -184,7 +208,6 @@ export const GameBoard: React.FC<{
   shakeBoard = false,
   events = [],
   bonusStars = [],
-  chains = 0,
 }) => {
   const [container, setContainer] = React.useState<{ width: number; height: number }>({
     width: 0,
@@ -268,19 +291,17 @@ export const GameBoard: React.FC<{
     return map;
   }, [events]);
 
-  // Get first clearing block position for chain popover
-  const chainPopoverPosition = useMemo(() => {
-    if (chains <= 0) return null;
-
-    // Get first flash target
-    const firstFlash = Array.from(flashTargets)[0];
-    if (!firstFlash) return null;
-
-    const [x, y] = firstFlash.split(',').map(Number);
-    console.log(`🎯 [CHAIN POPOVER] Displaying "Chain x${chains}" at position (${x}, ${y})`);
-    return { x, y, chain: chains };
-  }, [chains, flashTargets]);
-
+  const flashChainMap = useMemo(() => {
+    const map = new Map<string, number>();
+    events.forEach(e => {
+      if (e.type === 'clear' || e.type === 'bomb') {
+        const cells = (e as any).cells as { x: number; y: number }[] | undefined;
+        const chain = (e as any).chain as number | undefined;
+        if (cells && chain) cells.forEach(c => map.set(`${c.x},${c.y}`, chain));
+      }
+    });
+    return map;
+  }, [events]);
   const boardTx = useSharedValue(0);
   const boardStyle = useAnimatedStyle(() => ({ transform: [{ translateX: boardTx.value }] }));
   const [globalBobFrame, setGlobalBobFrame] = React.useState<0 | 1>(0);
@@ -356,6 +377,7 @@ export const GameBoard: React.FC<{
               const baseType = cell?.type || null;
               const cracked = (cell as any)?.cracked === true;
               const renderType = flash ? flashTypeMap.get(keyStr) ?? baseType : baseType;
+              const chainNumber = flash ? flashChainMap.get(keyStr) : undefined;
               // For ghost/trail, show empty or faint overlay; if flashing, force render; bonus stars always visible
               const displayType = bonusStarCell
                 ? BlockType.STAR
@@ -393,6 +415,7 @@ export const GameBoard: React.FC<{
                         flash={flash}
                         bobFrame={shouldBob ? globalBobFrame : 0}
                         cracked={cracked}
+                        chainNumber={chainNumber}
                       />
                     </FallingWrapper>
                   </GravityWrapper>
@@ -402,42 +425,6 @@ export const GameBoard: React.FC<{
           </Box>
         ))}
       </Animated.View>
-
-      {/* Chain popover over first clearing block */}
-      {chainPopoverPosition && (
-        <Box
-          style={{
-            position: 'absolute',
-            left: boardPadding + chainPopoverPosition.x * (cellSize + cellGap),
-            top: boardPadding + chainPopoverPosition.y * (cellSize + cellGap),
-            pointerEvents: 'none',
-          }}
-        >
-          <Box
-            style={{
-              backgroundColor: 'rgba(255, 215, 0, 0.95)',
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderWidth: 2,
-              borderColor: '#FFD700',
-            }}
-          >
-            <Text
-              size="lg"
-              bold
-              style={{
-                color: '#000',
-                textShadowColor: 'rgba(255,255,255,0.5)',
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 2,
-              }}
-            >
-              Chain x{chainPopoverPosition.chain}
-            </Text>
-          </Box>
-        </Box>
-      )}
     </Box>
   );
 };
