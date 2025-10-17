@@ -1,11 +1,20 @@
 import React, { useEffect } from 'react';
-import { Box, Heading, HStack, Text, Switch, VStack } from '@gluestack-ui/themed';
+import {
+  Box,
+  Heading,
+  HStack,
+  Text,
+  Switch,
+  VStack,
+  Button,
+  ButtonText,
+} from '@gluestack-ui/themed';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loadSettings, saveSettings, Settings } from '@/utils/storage';
 import { audio } from '@/utils/audio';
 import * as Haptics from 'expo-haptics';
 
-export const SettingsScreen: React.FC = () => {
+export const SettingsScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [sound, setSound] = React.useState(true);
   const [music, setMusic] = React.useState(true);
   const [haptics, setHaptics] = React.useState(true);
@@ -27,7 +36,12 @@ export const SettingsScreen: React.FC = () => {
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <Box flex={1} p="$6">
-        <Heading mb="$6">Settings</Heading>
+        <HStack justifyContent="space-between" alignItems="center" mb="$6">
+          <Heading>Settings</Heading>
+          <Button onPress={() => navigation.goBack()} size="sm" variant="outline">
+            <ButtonText>Back</ButtonText>
+          </Button>
+        </HStack>
         <VStack>
           <HStack alignItems="center" justifyContent="space-between" mb="$4">
             <Text>Sound Effects</Text>

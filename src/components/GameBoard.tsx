@@ -17,7 +17,7 @@ const imageForBlockCell = (cell: BlockCell) => {
 
   switch (cell.type) {
     case BlockType.RICK:
-      return require('../../assets/sprites/hamster.png');
+      return require('../../assets/sprites/jelly-idle.gif');
     case BlockType.COO:
       return require('../../assets/sprites/bird.png');
     case BlockType.KINE:
@@ -38,9 +38,7 @@ const imageForBlockCellBob = (type: BlockType | null, frame: 0 | 1) => {
   if (!type) return null;
   switch (type) {
     case BlockType.RICK:
-      return frame === 0
-        ? require('../../assets/sprites/hamster.png')
-        : require('../../assets/sprites/hamster_bob.png');
+      return require('../../assets/sprites/jelly-idle.gif');
     case BlockType.COO:
       return frame === 0
         ? require('../../assets/sprites/bird.png')
@@ -64,9 +62,7 @@ const imageForBlockCellFlash = (cell: BlockCell, frame: 0 | 1) => {
   if (!cell) return null;
   switch (cell.type) {
     case BlockType.RICK:
-      return frame === 0
-        ? require('../../assets/sprites/hamster_flash_1.png')
-        : require('../../assets/sprites/hamster_flash_2.png');
+      return require('../../assets/sprites/jelly-idle.gif');
     case BlockType.COO:
       return frame === 0
         ? require('../../assets/sprites/bird_flash_1.png')

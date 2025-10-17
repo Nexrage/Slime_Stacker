@@ -7,7 +7,7 @@ const spriteFor = (name?: string) => {
     default: {
       // map string to known filenames
       const lower = (name || '').toLowerCase();
-      if (lower === 'rick') return require('../../assets/sprites/hamster.png');
+      if (lower === 'rick') return require('../../assets/sprites/jelly-idle.gif');
       if (lower === 'coo') return require('../../assets/sprites/bird.png');
       if (lower === 'kine') return require('../../assets/sprites/fish.png');
       if (lower === 'star') return require('../../assets/sprites/star.png');
