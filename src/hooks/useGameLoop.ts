@@ -29,6 +29,9 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
   const handTimer = useRef<any>(null);
   const handIntervalMs = useRef<number>(10000);
   const stateRef = useRef<EngineState>(initialEngineState(seed));
+  // Clearing-phase UI ack: freeze ticks until UI reports completion
+  const awaitingClearingRef = useRef<boolean>(false);
+  const [clearingToken, setClearingToken] = useState<number | null>(null);
 
   // Old interim system removed - animations now happen in real-time during clearing phase
 
@@ -41,7 +44,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
       const r = Math.random();
       // No empties for challenge-mode helper: 30% Star, 60% Friend, 10% Brick
       if (r < 0.3) return { type: BlockType.STAR };
-      if (r < 0.9) return { type: [BlockType.RICK, BlockType.COO, BlockType.KINE][Math.floor(Math.random()*3)] };
+      if (r < 0.9) return { type: [BlockType.GREEN_JELLY, BlockType.RED_JELLY, BlockType.BLUE_JELLY][Math.floor(Math.random()*3)] };
       return { type: BlockType.BRICK };
     });
     // full brick row above the random row
@@ -70,9 +73,15 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
       accumulated += now - lastTs;
       lastTs = now;
       while (accumulated >= tickMs) {
+        // Do not advance the engine while waiting for clearing animation ack
+        if (awaitingClearingRef.current) {
+          accumulated = 0;
+          break;
+        }
+
         const result = tick(stateRef.current);
         
-        // If entering clearing phase, pause ticks and play animation
+        // If entering clearing phase, pause ticks and wait for UI callback
         if (result.phase.type === 'clearing' && stateRef.current.phase.type !== 'clearing') {
           console.log('⏸️ [PAUSE] Entering clearing phase - playing clear animation');
           setEvents(result.events || []);
@@ -87,27 +96,11 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
             phase: result.phase,
             chainState: stateRef.current.chainState,
           } as EngineState;
-          
-          // Wait for animation (300ms), then continue
-          setTimeout(() => {
-            console.log('▶️ [RESUME] Clear animation complete - continuing');
-            setEvents([]);
-            // Force a tick to exit clearing phase
-            const continueResult = tick(stateRef.current);
-            stateRef.current = {
-              grid: continueResult.grid,
-              falling: continueResult.falling,
-              next: continueResult.next,
-              hold: continueResult.hold,
-              canHold: continueResult.canHold,
-              seed: stateRef.current.seed,
-              rng: stateRef.current.rng,
-              phase: continueResult.phase,
-              chainState: stateRef.current.chainState,
-            } as EngineState;
-            setGrid(overlayPair(continueResult.grid, continueResult.falling));
-          }, 300);
-          
+          // Generate a token for this clearing session and freeze the loop
+          const token = Date.now() ^ Math.floor(Math.random() * 0x7fffffff);
+          setClearingToken(token);
+          awaitingClearingRef.current = true;
+          // Stop consuming ticks until UI acks
           accumulated = 0;
           break;
         }
@@ -345,5 +338,31 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
     setShake(false);
   }, [mode, opts?.sameSeed]);
 
-  return { grid, score, chains, ghost, fallingPositions, dropTrail, shake, bonusStars, moveLeft, moveRight, softDrop, rotate, holdAction, hardDrop, restart, next, hold, canHold, timeLeft, gameOver, events, seed } as const;
+  // UI calls this after it has presented the clearing animation at least once
+  const notifyClearingComplete = useCallback((token?: number | null) => {
+    // Only act if we are actually paused for clearing and token matches (if provided)
+    if (!awaitingClearingRef.current) return;
+    if (clearingToken != null && token != null && token !== clearingToken) return;
+    console.log('▶️ [RESUME] Clear animation complete - continuing (ack)');
+    setEvents([]);
+    awaitingClearingRef.current = false;
+    setClearingToken(null);
+
+    // Advance one engine tick to exit clearing
+    const continueResult = tick(stateRef.current);
+    stateRef.current = {
+      grid: continueResult.grid,
+      falling: continueResult.falling,
+      next: continueResult.next,
+      hold: continueResult.hold,
+      canHold: continueResult.canHold,
+      seed: stateRef.current.seed,
+      rng: stateRef.current.rng,
+      phase: continueResult.phase,
+      chainState: stateRef.current.chainState,
+    } as EngineState;
+    setGrid(overlayPair(continueResult.grid, continueResult.falling));
+  }, [clearingToken]);
+
+  return { grid, score, chains, ghost, fallingPositions, dropTrail, shake, bonusStars, moveLeft, moveRight, softDrop, rotate, holdAction, hardDrop, restart, next, hold, canHold, timeLeft, gameOver, events, seed, notifyClearingComplete, clearingToken } as const;
 }

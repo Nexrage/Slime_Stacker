@@ -36,6 +36,8 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
     fallingPositions,
     events,
     bonusStars,
+    notifyClearingComplete,
+    clearingToken,
     moveLeft,
     moveRight,
     softDrop,
@@ -190,6 +192,8 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
             shakeBoard={shake}
             events={events}
             bonusStars={bonusStars}
+            onClearingComplete={notifyClearingComplete}
+            clearingToken={clearingToken}
           />
         </Box>
       </GestureDetector>

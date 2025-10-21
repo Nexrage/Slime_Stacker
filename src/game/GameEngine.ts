@@ -20,6 +20,8 @@ export type ChainState = {
   totalStars: number;
   chainCount: number;
   clearedGrid: BlockCell[][] | null; // Grid after clearing, waiting to apply
+  pendingBonusStarsCount?: number; // Stars to drop after next gravity settle
+  bonusStarsFallingActive?: boolean; // While true, stars fall at 2x speed
 };
 
 export type EngineState = {
@@ -60,7 +62,7 @@ export function createEmptyGrid(): BlockCell[][] {
 }
 
 function randFriend(rng: () => number): BlockType {
-  return [BlockType.RICK, BlockType.COO, BlockType.KINE][Math.floor(rng() * 3)];
+  return [BlockType.GREEN_JELLY, BlockType.RED_JELLY, BlockType.BLUE_JELLY][Math.floor(rng() * 3)];
 }
 
 function randSpecial(rng: () => number): BlockType | null {
@@ -88,7 +90,7 @@ export function initialEngineState(seed: number = Math.floor(Math.random() * 0x7
     seed,
     rng,
     phase: { type: 'falling' },
-    chainState: { totalStars: 0, chainCount: 0, clearedGrid: null },
+    chainState: { totalStars: 0, chainCount: 0, clearedGrid: null, pendingBonusStarsCount: 0, bonusStarsFallingActive: false },
   };
 }
 
@@ -206,6 +208,49 @@ export function applyGravityStep(grid: BlockCell[][]): { grid: BlockCell[][]; di
   return { grid: g, didMove, falls };
 }
 
+// Bonus stars fall at 2x speed: move stars down twice, then move other blocks once
+function applyGravityStepWithStarBoost(grid: BlockCell[][]): { grid: BlockCell[][]; didMove: boolean; falls: { x: number; fromY: number; toY: number }[] } {
+  const g = grid.map(r => r.slice());
+  let didMove = false;
+  const falls: { x: number; fromY: number; toY: number }[] = [];
+
+  const moveStarsOnce = () => {
+    let moved = false;
+    for (let x = 0; x < GRID_COLS; x++) {
+      for (let y = GRID_ROWS - 2; y >= 0; y--) {
+        if (g[y][x]?.type === BlockType.STAR && !g[y + 1][x]) {
+          g[y + 1][x] = g[y][x];
+          g[y][x] = null;
+          falls.push({ x, fromY: y, toY: y + 1 });
+          moved = true;
+        }
+      }
+    }
+    return moved;
+  };
+
+  // Stars move two cells (if space)
+  const s1 = moveStarsOnce();
+  const s2 = moveStarsOnce();
+
+  // Non-stars move one cell
+  let movedOthers = false;
+  for (let x = 0; x < GRID_COLS; x++) {
+    for (let y = GRID_ROWS - 2; y >= 0; y--) {
+      const cell = g[y][x];
+      if (cell && cell.type !== BlockType.STAR && !g[y + 1][x]) {
+        g[y + 1][x] = cell;
+        g[y][x] = null;
+        falls.push({ x, fromY: y, toY: y + 1 });
+        movedOthers = true;
+      }
+    }
+  }
+
+  didMove = s1 || s2 || movedOthers;
+  return { grid: g, didMove, falls };
+}
+
 export function overlayPair(grid: BlockCell[][], pair: FallingPair | null): BlockCell[][] {
   if (!pair) return grid;
   const g = grid.map(r => r.slice());
@@ -216,8 +261,8 @@ export function overlayPair(grid: BlockCell[][], pair: FallingPair | null): Bloc
   return g;
 }
 
-function isFriend(cell: BlockCell): cell is { type: BlockType.RICK | BlockType.COO | BlockType.KINE } {
-  return !!cell && (cell.type === BlockType.RICK || cell.type === BlockType.COO || cell.type === BlockType.KINE);
+function isFriend(cell: BlockCell): cell is { type: BlockType.GREEN_JELLY | BlockType.RED_JELLY | BlockType.BLUE_JELLY } {
+  return !!cell && (cell.type === BlockType.GREEN_JELLY || cell.type === BlockType.RED_JELLY || cell.type === BlockType.BLUE_JELLY);
 }
 
 function detectMatches(grid: BlockCell[][]): {
@@ -379,47 +424,35 @@ function detectMatches(grid: BlockCell[][]): {
   return { clearSet, bombRows, bricksToCrack, bricksToEliminate };
 }
 
-function getLeastFilledColumns(grid: BlockCell[][], count: number): number[] {
-  // Count blocks in each column
-  const columnHeights = Array.from({ length: GRID_COLS }, (_, x) => {
-    let height = 0;
+function getColumnsByDeepestEmpty(grid: BlockCell[][], count: number): number[] {
+  // For each column, find the deepest empty cell (largest y). If column is full, mark as -1
+  const stats = Array.from({ length: GRID_COLS }, (_, x) => {
+    let deepestEmpty = -1;
     for (let y = GRID_ROWS - 1; y >= 0; y--) {
-      if (grid[y][x]) height++;
-      else break; // Stop at first empty cell from bottom
+      if (!grid[y][x]) { deepestEmpty = y; break; }
     }
-    return { x, height };
+    return { x, deepestEmpty };
   });
-  
-  // Sort by height (least filled first), then by column index for stability
-  columnHeights.sort((a, b) => a.height - b.height || a.x - b.x);
-  
-  // Return the column indices
-  return columnHeights.slice(0, count).map(c => c.x);
+  // Prefer columns with deeper empties (desc), stable by x asc
+  stats.sort((a, b) => (b.deepestEmpty - a.deepestEmpty) || (a.x - b.x));
+  return stats.filter(s => s.deepestEmpty >= 0).slice(0, Math.min(count, GRID_COLS)).map(s => s.x);
 }
 
 function dropBonusStars(grid: BlockCell[][], count: number): BlockCell[][] {
   if (count <= 0) return grid;
   
   const g = grid.map(r => r.slice());
-  const columns = getLeastFilledColumns(g, 2); // Always drop into 2 least-filled columns
-  
-  // Distribute stars across the two columns
-  let starsPerColumn = Math.floor(count / 2);
-  let remainder = count % 2;
-  
-  columns.forEach((x, idx) => {
-    let starsToDrop = starsPerColumn + (idx === 0 ? remainder : 0);
-    
-    // Find the lowest empty position in this column
-    for (let i = 0; i < starsToDrop; i++) {
-      for (let y = GRID_ROWS - 1; y >= 0; y--) {
-        if (!g[y][x]) {
-          g[y][x] = { type: BlockType.STAR };
-          break;
-        }
-      }
+  // Choose columns by deepest empty; spread across as many as available
+  const columns = getColumnsByDeepestEmpty(g, Math.min(count, GRID_COLS));
+  if (columns.length === 0) return g;
+
+  // Place each star at the topmost empty cell so it visibly falls from the top
+  for (let i = 0; i < count; i++) {
+    const x = columns[i % columns.length];
+    for (let y = 0; y < GRID_ROWS; y++) {
+      if (!g[y][x]) { g[y][x] = { type: BlockType.STAR }; break; }
     }
-  });
+  }
   
   return g;
 }
@@ -632,7 +665,10 @@ export function tick(state: EngineState): TickResult {
   
   // ===== GRAVITY PHASE: Blocks falling =====
   if (phase.type === 'gravity') {
-    const { grid: newGrid, didMove, falls } = applyGravityStep(grid);
+    // Use boosted gravity only while bonus stars just dropped are falling
+    const useBoost = !!chainState.bonusStarsFallingActive;
+    const step = useBoost ? applyGravityStepWithStarBoost : applyGravityStep;
+    const { grid: newGrid, didMove, falls } = step(grid);
     
     if (didMove) {
       // Blocks moved, continue gravity phase
@@ -651,8 +687,32 @@ export function tick(state: EngineState): TickResult {
       };
     }
     
-    // No blocks moved - gravity settled, enter matching phase
+    // No blocks moved - gravity settled
     console.log('⬇️  [GRAVITY] settled');
+    // If we have pending bonus stars, drop them now and continue gravity to let them fall
+    if ((chainState.pendingBonusStarsCount ?? 0) > 0) {
+      const toDrop = chainState.pendingBonusStarsCount ?? 0;
+      chainState.pendingBonusStarsCount = 0;
+      const withStars = dropBonusStars(newGrid, toDrop);
+      console.log(`⭐ [BONUS STARS] Dropped ${toDrop} after gravity settle`);
+      // Activate boosted star falling only for this bonus-drop sequence
+      chainState.bonusStarsFallingActive = true;
+      return {
+        grid: withStars,
+        falling: null,
+        next,
+        hold,
+        canHold,
+        phase: { type: 'gravity' },
+        scoredStars: 0,
+        chains: 0,
+        events: []
+      };
+    }
+    // If we were boosting stars, and gravity is settled, turn it off
+    if (chainState.bonusStarsFallingActive) {
+      chainState.bonusStarsFallingActive = false;
+    }
     return {
       grid: newGrid,
       falling: null,
@@ -735,7 +795,7 @@ export function tick(state: EngineState): TickResult {
     let finalGrid = chainState.clearedGrid || grid;
     chainState.clearedGrid = null;
     
-    // Drop bonus stars if chain >= 2
+    // Queue bonus stars to drop AFTER the next gravity settle (ensures all blocks settle first)
     if (chainState.chainCount >= 2) {
       let bonusStars = 0;
       switch (chainState.chainCount) {
@@ -745,8 +805,10 @@ export function tick(state: EngineState): TickResult {
         case 5: bonusStars = 6; break;
         default: bonusStars = 12; break;
       }
-      console.log(`⭐ [BONUS STARS] Chain ${chainState.chainCount} → ${bonusStars} stars dropped`);
-      finalGrid = dropBonusStars(finalGrid, bonusStars);
+      chainState.pendingBonusStarsCount = bonusStars;
+      console.log(`⭐ [BONUS STARS] Chain ${chainState.chainCount} → queued ${bonusStars} stars (post-gravity)`);
+    } else {
+      chainState.pendingBonusStarsCount = 0;
     }
     
     // Back to gravity phase to settle blocks

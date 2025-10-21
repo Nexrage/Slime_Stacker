@@ -1,7 +1,7 @@
 export enum BlockType {
-  RICK = 'rick',
-  COO = 'coo',
-  KINE = 'kine',
+  GREEN_JELLY = 'green_jelly',
+  RED_JELLY = 'red_jelly',
+  BLUE_JELLY = 'blue_jelly',
   STAR = 'star',
   BOMB = 'bomb',
   BRICK = 'brick',

@@ -16,14 +16,14 @@ const imageForBlockCell = (cell: BlockCell) => {
   if (!cell) return null;
 
   switch (cell.type) {
-    case BlockType.RICK:
-      return require('../../assets/sprites/jelly-idle.gif');
-    case BlockType.COO:
-      return require('../../assets/sprites/bird.png');
-    case BlockType.KINE:
-      return require('../../assets/sprites/fish.png');
+    case BlockType.GREEN_JELLY:
+      return require('../../assets/sprites/gifs/jelly-idle.gif');
+    case BlockType.RED_JELLY:
+      return require('../../assets/sprites/gifs/red-jelly-idle.gif');
+    case BlockType.BLUE_JELLY:
+      return require('../../assets/sprites/gifs/blue-jelly-idle.gif');
     case BlockType.STAR:
-      return require('../../assets/sprites/star.png');
+      return require('../../assets/sprites/icons/tile191.png');
     case BlockType.BRICK:
       // Use cracked visual when available (driven via 'cracked' prop downstream)
       return require('../../assets/sprites/block.png');
@@ -37,18 +37,14 @@ const imageForBlockCell = (cell: BlockCell) => {
 const imageForBlockCellBob = (type: BlockType | null, frame: 0 | 1) => {
   if (!type) return null;
   switch (type) {
-    case BlockType.RICK:
-      return require('../../assets/sprites/jelly-idle.gif');
-    case BlockType.COO:
-      return frame === 0
-        ? require('../../assets/sprites/bird.png')
-        : require('../../assets/sprites/bird_bob.png');
-    case BlockType.KINE:
-      return frame === 0
-        ? require('../../assets/sprites/fish.png')
-        : require('../../assets/sprites/fish_bob.png');
+    case BlockType.GREEN_JELLY:
+      return require('../../assets/sprites/gifs/jelly-idle.gif');
+    case BlockType.RED_JELLY:
+      return require('../../assets/sprites/gifs/red-jelly-idle.gif');
+    case BlockType.BLUE_JELLY:
+      return require('../../assets/sprites/gifs/blue-jelly-idle.gif');
     case BlockType.STAR:
-      return require('../../assets/sprites/star.png');
+      return require('../../assets/sprites/icons/tile191.png');
     case BlockType.BRICK:
       return require('../../assets/sprites/block.png');
     case BlockType.BOMB:
@@ -61,19 +57,15 @@ const imageForBlockCellBob = (type: BlockType | null, frame: 0 | 1) => {
 const imageForBlockCellFlash = (cell: BlockCell, frame: 0 | 1) => {
   if (!cell) return null;
   switch (cell.type) {
-    case BlockType.RICK:
-      return require('../../assets/sprites/jelly-idle.gif');
-    case BlockType.COO:
-      return frame === 0
-        ? require('../../assets/sprites/bird_flash_1.png')
-        : require('../../assets/sprites/bird_flash_2.png');
-    case BlockType.KINE:
-      return frame === 0
-        ? require('../../assets/sprites/fish_flash_1.png')
-        : require('../../assets/sprites/fish_flash_2.png');
+    case BlockType.GREEN_JELLY:
+      return require('../../assets/sprites/gifs/jelly-green-kill.gif');
+    case BlockType.RED_JELLY:
+      return require('../../assets/sprites/gifs/jelly-red-kill.gif');
+    case BlockType.BLUE_JELLY:
+      return require('../../assets/sprites/gifs/blue-jelly-kill.gif');
     case BlockType.STAR:
-      // No dedicated star flash frames in assets; reuse star.png for both frames
-      return require('../../assets/sprites/star_flash.png');
+      // No dedicated star flash frames in assets; reuse tile191.png for both frames
+      return require('../../assets/sprites/icons/tile191.png');
     case BlockType.BRICK:
       // Brick has a single flash frame
       return require('../../assets/sprites/brick_flash_1.png');
@@ -85,53 +77,61 @@ const imageForBlockCellFlash = (cell: BlockCell, frame: 0 | 1) => {
   }
 };
 
+interface ClearingState {
+  isClearing: boolean;
+  chainNumber?: number;
+}
+
 const Cell: React.FC<{
   blockType: BlockType | null;
   w: number;
   h: number;
   shake: boolean;
-  flash?: boolean;
+  clearing?: ClearingState;
   bobFrame?: 0 | 1;
   cracked?: boolean;
-  chainNumber?: number;
-}> = ({ blockType, w, h, shake, flash = false, bobFrame = 0, cracked = false, chainNumber }) => {
+}> = ({ blockType, w, h, shake, clearing, bobFrame = 0, cracked = false }) => {
   const opacity = useSharedValue(1);
   const translateX = useSharedValue(0);
-  const [flashFrame, setFlashFrame] = useState<0 | 1>(0);
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [{ translateX: translateX.value }],
   }));
 
-  // Unified clear animation: sprite blink + fade out
+  // Clearing animation: blink during most of the window, subtle fade near the end
   useEffect(() => {
-    let blinkInterval: any;
-    if (flash) {
-      console.log('🎬 [ANIMATION] Clear block animation (blink sprites then fade out)');
-
-      // Start sprite blinking immediately
-      setFlashFrame(0);
-      blinkInterval = setInterval(() => {
-        setFlashFrame(prev => (prev === 0 ? 1 : 0));
-      }, 100);
-
-      // Fade out after blink is visible (200ms)
-      opacity.value = withSequence(
-        withDelay(
-          200,
-          withSequence(
-            withTiming(0.5, { duration: 60 }),
-            withTiming(1, { duration: 60 }),
-            withTiming(0, { duration: 180 })
-          )
-        )
+    let blinkInt: any;
+    let fadeTo: any;
+    if (clearing?.isClearing) {
+      console.log(
+        '🎬 [ANIMATION] Clear block animation (blink + subtle end fade)',
+        clearing.chainNumber ? `with chain ${clearing.chainNumber}` : ''
       );
+      // Start at full opacity
+      opacity.value = 1;
+      // Blink between 1 and ~0.7 quickly
+      blinkInt = setInterval(() => {
+        const next = opacity.value < 0.9 ? 1 : 0.7;
+        opacity.value = withTiming(next, { duration: 90 });
+      }, 140);
+      // Subtle fade near the end of the clearing window (assumes ~1700ms total)
+      fadeTo = setTimeout(() => {
+        if (blinkInt) {
+          clearInterval(blinkInt);
+          blinkInt = null;
+        }
+        opacity.value = withTiming(0.4, { duration: 260 });
+      }, 1500);
     } else {
-      setFlashFrame(0);
+      if (blinkInt) clearInterval(blinkInt);
+      if (fadeTo) clearTimeout(fadeTo);
       opacity.value = withTiming(1, { duration: 120 });
     }
-    return () => blinkInterval && clearInterval(blinkInterval);
-  }, [flash]);
+    return () => {
+      if (blinkInt) clearInterval(blinkInt);
+      if (fadeTo) clearTimeout(fadeTo);
+    };
+  }, [clearing?.isClearing]);
 
   useEffect(() => {
     if (shake) {
@@ -145,8 +145,8 @@ const Cell: React.FC<{
     }
   }, [shake]);
 
-  const imageSource = flash
-    ? imageForBlockCellFlash(blockType ? { type: blockType } : null, flashFrame)
+  const imageSource = clearing?.isClearing
+    ? imageForBlockCellFlash(blockType ? { type: blockType } : null, 0)
     : blockType === BlockType.BRICK && cracked
     ? require('../../assets/sprites/brick_flash_1.png')
     : imageForBlockCellBob(blockType || null, bobFrame);
@@ -155,7 +155,7 @@ const Cell: React.FC<{
     <Animated.View
       style={[{ width: w, height: h, borderRadius: 4, overflow: 'hidden' }, animatedStyle]}
     >
-      {flash && chainNumber ? (
+      {clearing?.isClearing && clearing.chainNumber ? (
         <Box
           style={{
             width: w,
@@ -176,7 +176,7 @@ const Cell: React.FC<{
               fontWeight: 'bold',
             }}
           >
-            {chainNumber}
+            {clearing.chainNumber}
           </Text>
         </Box>
       ) : imageSource ? (
@@ -196,6 +196,8 @@ export const GameBoard: React.FC<{
   shakeBoard?: boolean;
   events?: { type: string; [k: string]: any }[];
   bonusStars?: { x: number; y: number; currentY: number }[];
+  clearingToken?: number | null;
+  onClearingComplete?: (token?: number | null) => void;
 }> = ({
   grid,
   ghost = [],
@@ -204,6 +206,8 @@ export const GameBoard: React.FC<{
   shakeBoard = false,
   events = [],
   bonusStars = [],
+  clearingToken = null,
+  onClearingComplete,
 }) => {
   const [container, setContainer] = React.useState<{ width: number; height: number }>({
     width: 0,
@@ -276,6 +280,37 @@ export const GameBoard: React.FC<{
     }
     return set;
   }, [events]);
+
+  // After first paint of clearing visuals, wait for kill GIF(s) duration, then ack back to engine
+  const lastAckedTokenRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!onClearingComplete) return;
+    const hasClears = flashTargets.size > 0;
+    if (!hasClears) return;
+    if (clearingToken != null && lastAckedTokenRef.current === clearingToken) return;
+
+    // Fixed duration for kill GIF playback window
+    let maxDuration = 1700;
+
+    const id1 = requestAnimationFrame(() => {
+      const id2 = requestAnimationFrame(() => {
+        const to = setTimeout(() => {
+          onClearingComplete(clearingToken);
+          if (clearingToken != null) lastAckedTokenRef.current = clearingToken;
+        }, maxDuration);
+        // Store handle for cleanup via closure
+        (onClearingComplete as any).__clear_to = to;
+      });
+      void id2; // silence unused in TS
+    });
+    return () => {
+      cancelAnimationFrame(id1);
+      const to = (onClearingComplete as any).__clear_to as
+        | ReturnType<typeof setTimeout>
+        | undefined;
+      if (to) clearTimeout(to);
+    };
+  }, [flashTargets.size, clearingToken, onClearingComplete, flashTypeMap]);
   const flashTypeMap = useMemo(() => {
     const map = new Map<string, BlockType>();
     events.forEach(e => {
@@ -293,7 +328,14 @@ export const GameBoard: React.FC<{
       if (e.type === 'clear' || e.type === 'bomb') {
         const cells = (e as any).cells as { x: number; y: number }[] | undefined;
         const chain = (e as any).chain as number | undefined;
-        if (cells && chain) cells.forEach(c => map.set(`${c.x},${c.y}`, chain));
+        // Only show spinner for chains > 1, and only on the first cell of each chain
+        if (cells && chain && chain > 1) {
+          // Pick the first cell to show the spinner
+          const firstCell = cells[0];
+          if (firstCell) {
+            map.set(`${firstCell.x},${firstCell.y}`, chain);
+          }
+        }
       }
     });
     return map;
@@ -374,6 +416,14 @@ export const GameBoard: React.FC<{
               const cracked = (cell as any)?.cracked === true;
               const renderType = flash ? flashTypeMap.get(keyStr) ?? baseType : baseType;
               const chainNumber = flash ? flashChainMap.get(keyStr) : undefined;
+
+              // Consolidated clearing state
+              const clearing: ClearingState | undefined = flash
+                ? {
+                    isClearing: true,
+                    chainNumber: chainNumber,
+                  }
+                : undefined;
               // For ghost/trail, show empty or faint overlay; if flashing, force render; bonus stars always visible
               const displayType = bonusStarCell
                 ? BlockType.STAR
@@ -408,10 +458,9 @@ export const GameBoard: React.FC<{
                         w={cellSize}
                         h={cellSize}
                         shake={shake}
-                        flash={flash}
+                        clearing={clearing}
                         bobFrame={shouldBob ? globalBobFrame : 0}
                         cracked={cracked}
-                        chainNumber={chainNumber}
                       />
                     </FallingWrapper>
                   </GravityWrapper>

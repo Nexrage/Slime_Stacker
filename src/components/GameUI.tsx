@@ -7,10 +7,10 @@ const spriteFor = (name?: string) => {
     default: {
       // map string to known filenames
       const lower = (name || '').toLowerCase();
-      if (lower === 'rick') return require('../../assets/sprites/jelly-idle.gif');
-      if (lower === 'coo') return require('../../assets/sprites/bird.png');
-      if (lower === 'kine') return require('../../assets/sprites/fish.png');
-      if (lower === 'star') return require('../../assets/sprites/star.png');
+      if (lower === 'green_jelly') return require('../../assets/sprites/gifs/jelly-idle.gif');
+      if (lower === 'red_jelly') return require('../../assets/sprites/gifs/red-jelly-idle.gif');
+      if (lower === 'blue_jelly') return require('../../assets/sprites/gifs/blue-jelly-idle.gif');
+      if (lower === 'star') return require('../../assets/sprites/icons/tile191.png');
       if (lower === 'brick') return require('../../assets/sprites/block.png');
       if (lower === 'bomb') return require('../../assets/sprites/bomb.png');
       return null;
