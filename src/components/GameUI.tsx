@@ -1,5 +1,6 @@
 import React from 'react';
 import { HStack, Text, Box, Image } from '@gluestack-ui/themed';
+import { ImageBackground } from 'react-native';
 import { BlockType } from '@/game/BlockTypes';
 
 const spriteFor = (name?: string) => {
@@ -29,75 +30,95 @@ export const GameUI: React.FC<{
   canHold?: boolean;
 }> = ({ score = 0, level = 1, mode, difficulty, chains = 0, next, hold, canHold }) => {
   return (
-    <Box bg="$background0" px="$3" py="$2" style={{ borderColor: '#008800', borderWidth: 1 }}>
-      <HStack justifyContent="space-between" style={{ borderColor: '#00aa00', borderWidth: 1 }}>
-        <Text>Score {score}</Text>
-        <Text>
-          {chains > 0 ? `Chain x${chains} • ` : ''}Level {level} {mode ? `• ${mode}` : ''}{' '}
-          {difficulty || ''}
-        </Text>
-      </HStack>
-      <HStack
-        justifyContent="space-between"
-        alignItems="center"
-        style={{ borderColor: '#00cc00', borderWidth: 1 }}
+    <Box px="$3" py="$2">
+      <ImageBackground
+        resizeMode="stretch"
+        source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_border.png')}
+        style={{ padding: 8, borderRadius: 8, overflow: 'hidden' }}
       >
-        <HStack alignItems="center" space="sm">
-          <Text>Next:</Text>
-          {next ? (
-            <HStack alignItems="center" space="xs">
-              {spriteFor(next[0]) ? (
+        <HStack justifyContent="space-between" alignItems="center">
+          <HStack alignItems="center" space="sm">
+            <Image
+              source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/star.png')}
+              alt="score"
+              style={{ width: 16, height: 16 }}
+            />
+            <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>Score {score}</Text>
+            {chains > 0 ? (
+              <HStack alignItems="center" space="xs">
                 <Image
-                  source={spriteFor(next[0]) as any}
-                  alt={next[0]}
-                  style={{ width: 20, height: 20 }}
+                  source={require('../../assets/kenney_ui-pack/PNG/Extra/Default/icon_repeat_dark.png')}
+                  alt="chain"
+                  style={{ width: 16, height: 16 }}
                 />
-              ) : (
-                <Text>{next[0]}</Text>
-              )}
-              {spriteFor(next[1]) ? (
-                <Image
-                  source={spriteFor(next[1]) as any}
-                  alt={next[1]}
-                  style={{ width: 20, height: 20 }}
-                />
-              ) : (
-                <Text>{next[1]}</Text>
-              )}
-            </HStack>
-          ) : (
-            <Text>-</Text>
-          )}
+                <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>x{chains}</Text>
+              </HStack>
+            ) : null}
+          </HStack>
+          <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>
+            Level {level} {mode ? `• ${mode}` : ''} {difficulty || ''}
+          </Text>
         </HStack>
-        <HStack alignItems="center" space="sm">
-          <Text>Hold:</Text>
-          {hold ? (
-            <HStack alignItems="center" space="xs">
-              {spriteFor(hold[0]) ? (
-                <Image
-                  source={spriteFor(hold[0]) as any}
-                  alt={hold[0]}
-                  style={{ width: 20, height: 20 }}
-                />
-              ) : (
-                <Text>{hold[0]}</Text>
-              )}
-              {spriteFor(hold[1]) ? (
-                <Image
-                  source={spriteFor(hold[1]) as any}
-                  alt={hold[1]}
-                  style={{ width: 20, height: 20 }}
-                />
-              ) : (
-                <Text>{hold[1]}</Text>
-              )}
-              {canHold === false ? <Text> (locked)</Text> : null}
-            </HStack>
-          ) : (
-            <Text>-</Text>
-          )}
+        <HStack justifyContent="space-between" alignItems="center" mt="$2">
+          <HStack alignItems="center" space="sm">
+            <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>Next:</Text>
+            {next ? (
+              <HStack alignItems="center" space="xs">
+                {spriteFor(next[0]) ? (
+                  <Image
+                    source={spriteFor(next[0]) as any}
+                    alt={next[0]}
+                    style={{ width: 20, height: 20 }}
+                  />
+                ) : (
+                  <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>{next[0]}</Text>
+                )}
+                {spriteFor(next[1]) ? (
+                  <Image
+                    source={spriteFor(next[1]) as any}
+                    alt={next[1]}
+                    style={{ width: 20, height: 20 }}
+                  />
+                ) : (
+                  <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>{next[1]}</Text>
+                )}
+              </HStack>
+            ) : (
+              <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>-</Text>
+            )}
+          </HStack>
+          <HStack alignItems="center" space="sm">
+            <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>Hold:</Text>
+            {hold ? (
+              <HStack alignItems="center" space="xs">
+                {spriteFor(hold[0]) ? (
+                  <Image
+                    source={spriteFor(hold[0]) as any}
+                    alt={hold[0]}
+                    style={{ width: 20, height: 20 }}
+                  />
+                ) : (
+                  <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>{hold[0]}</Text>
+                )}
+                {spriteFor(hold[1]) ? (
+                  <Image
+                    source={spriteFor(hold[1]) as any}
+                    alt={hold[1]}
+                    style={{ width: 20, height: 20 }}
+                  />
+                ) : (
+                  <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>{hold[1]}</Text>
+                )}
+                {canHold === false ? (
+                  <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}> (locked)</Text>
+                ) : null}
+              </HStack>
+            ) : (
+              <Text style={{ fontFamily: 'Kenney-Future-Narrow' }}>-</Text>
+            )}
+          </HStack>
         </HStack>
-      </HStack>
+      </ImageBackground>
     </Box>
   );
 };

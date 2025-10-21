@@ -11,6 +11,7 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallbackText,
+  Image as GSImage,
 } from '@gluestack-ui/themed';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -22,6 +23,7 @@ import { submitHighscore, loadSettings, Settings } from '@/utils/storage';
 import { audio } from '@/utils/audio';
 import { AppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { ImageBackground } from 'react-native';
 
 export const GameScreen: React.FC<any> = ({ navigation, route }) => {
   const params = route?.params || {};
@@ -293,30 +295,67 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
             backgroundColor: 'rgba(0,0,0,0.75)',
           }}
         >
-          <VStack space="lg" alignItems="center">
-            <Heading size="2xl">Paused</Heading>
-            <HStack space="md">
-              <Button
-                onPress={() => {
-                  playHaptic();
-                  setActive(true);
-                }}
-                size="lg"
-              >
-                <ButtonText>Resume</ButtonText>
-              </Button>
-              <Button
-                onPress={() => {
-                  playHaptic();
-                  navigation.popToTop();
-                }}
-                variant="outline"
-                size="lg"
-              >
-                <ButtonText>Exit</ButtonText>
-              </Button>
-            </HStack>
-          </VStack>
+          <ImageBackground
+            resizeMode="stretch"
+            source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_border.png')}
+            style={{ padding: 16, borderRadius: 12, overflow: 'hidden' }}
+          >
+            <VStack space="lg" alignItems="center">
+              <Heading size="2xl" style={{ fontFamily: 'Kenney-Future' }}>
+                Paused
+              </Heading>
+              <HStack space="md" alignItems="center">
+                <ImageBackground
+                  resizeMode="stretch"
+                  source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_gloss.png')}
+                  style={{ borderRadius: 8, overflow: 'hidden' }}
+                >
+                  <Button
+                    onPress={() => {
+                      playHaptic();
+                      setActive(true);
+                    }}
+                    size="lg"
+                    variant="link"
+                    style={{ backgroundColor: 'transparent', paddingHorizontal: 16 }}
+                  >
+                    <HStack alignItems="center" space="sm">
+                      <GSImage
+                        alt="resume"
+                        source={require('../../assets/kenney_ui-pack/PNG/Extra/Default/icon_play_light.png')}
+                        style={{ width: 20, height: 20 }}
+                      />
+                      <ButtonText style={{ fontFamily: 'Kenney-Future-Narrow' }}>Resume</ButtonText>
+                    </HStack>
+                  </Button>
+                </ImageBackground>
+                <ImageBackground
+                  resizeMode="stretch"
+                  source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_gloss.png')}
+                  style={{ borderRadius: 8, overflow: 'hidden' }}
+                >
+                  <Button
+                    onPress={() => {
+                      playHaptic();
+                      navigation.popToTop();
+                    }}
+                    variant="link"
+                    size="lg"
+                    style={{ backgroundColor: 'transparent', paddingHorizontal: 16 }}
+                  >
+                    <HStack alignItems="center" space="sm">
+                      <GSImage
+                        alt="exit"
+                        source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/icon_cross.png')}
+                        style={{ width: 20, height: 20 }}
+                      />
+                      <ButtonText style={{ fontFamily: 'Kenney-Future-Narrow' }}>Exit</ButtonText>
+                    </HStack>
+                  </Button>
+                </ImageBackground>
+              </HStack>
+            </VStack>
+          </ImageBackground>
         </Center>
       )}
     </SafeAreaView>

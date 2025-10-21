@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, ButtonText, Heading, VStack } from '@gluestack-ui/themed';
+import {
+  Box,
+  Button,
+  ButtonText,
+  Heading,
+  VStack,
+  HStack,
+  Image as GSImage,
+} from '@gluestack-ui/themed';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loadSettings, updateSettings } from '@/utils/storage';
 import Animated, {
@@ -11,6 +19,7 @@ import Animated, {
   withRepeat,
   withSequence,
 } from 'react-native-reanimated';
+import { ImageBackground } from 'react-native';
 
 const AnimatedButton: React.FC<{
   onPress: () => void;
@@ -19,7 +28,8 @@ const AnimatedButton: React.FC<{
   delay: number;
   style: any;
   oscillationSpeed?: number;
-}> = ({ onPress, children, slideFrom, delay, style, oscillationSpeed = 2000 }) => {
+  icon?: 'play' | 'star' | 'gear' | 'book' | 'title' | undefined;
+}> = ({ onPress, children, slideFrom, delay, style, oscillationSpeed = 2000, icon }) => {
   const translateX = useSharedValue(slideFrom === 'left' ? -300 : 300);
   const opacity = useSharedValue(0);
   const oscillateX = useSharedValue(0);
@@ -60,26 +70,74 @@ const AnimatedButton: React.FC<{
 
   return (
     <Animated.View style={[animatedStyle, { flex: 1 }]}>
-      <Button
-        onPress={onPress}
-        size="xl"
-        style={[
-          style,
-          {
-            elevation: 8,
-            shadowColor: '#000',
-            shadowOffset: {
-              width: 0,
-              height: 4,
-            },
-            shadowOpacity: 0.3,
-            shadowRadius: 6,
-            zIndex: 1,
-          },
-        ]}
+      <ImageBackground
+        resizeMode="stretch"
+        source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_gloss.png')}
+        style={{ flex: 1, borderRadius: 8, overflow: 'hidden' }}
       >
-        {children}
-      </Button>
+        <Button
+          onPress={onPress}
+          size="xl"
+          variant="link"
+          style={[
+            style,
+            {
+              elevation: 8,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 6,
+              zIndex: 1,
+              backgroundColor: 'transparent',
+            },
+          ]}
+        >
+          <HStack alignItems="center" space="md">
+            {icon === 'play' ? (
+              <GSImage
+                alt="play"
+                source={require('../../assets/kenney_ui-pack/PNG/Extra/Default/icon_play_light.png')}
+                style={{ width: 28, height: 28 }}
+              />
+            ) : null}
+            {icon === 'star' ? (
+              <GSImage
+                alt="star"
+                source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/star.png')}
+                style={{ width: 28, height: 28 }}
+              />
+            ) : null}
+            {icon === 'gear' ? (
+              <GSImage
+                alt="settings"
+                source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/icon_outline_circle.png')}
+                style={{ width: 28, height: 28 }}
+              />
+            ) : null}
+            {icon === 'book' ? (
+              <GSImage
+                alt="tutorial"
+                source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/icon_square.png')}
+                style={{ width: 28, height: 28 }}
+              />
+            ) : null}
+            {icon === 'title' ? (
+              <GSImage
+                alt="back"
+                source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/arrow_basic_w.png')}
+                style={{ width: 28, height: 28 }}
+              />
+            ) : null}
+            <ButtonText
+              style={{ fontFamily: 'Kenney-Future-Narrow' }}
+              fontSize="$2xl"
+              fontWeight="bold"
+            >
+              {children}
+            </ButtonText>
+          </HStack>
+        </Button>
+      </ImageBackground>
     </Animated.View>
   );
 };
@@ -96,12 +154,13 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <Box flex={1} justifyContent="center" px="$4">
-        <VStack space="$2" flex={1} justifyContent="center">
+        <VStack space="md" flex={1} justifyContent="center">
           <AnimatedButton
             onPress={() => navigation.navigate('LevelSelect')}
             slideFrom="left"
             delay={100}
             oscillationSpeed={1800}
+            icon="play"
             style={{
               flex: 1,
               minHeight: 80,
@@ -109,15 +168,14 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
               marginVertical: 2,
             }}
           >
-            <ButtonText fontSize="$2xl" fontWeight="$bold">
-              Round Clear
-            </ButtonText>
+            Round Clear
           </AnimatedButton>
           <AnimatedButton
             onPress={() => navigation.navigate('Game', { mode: 'challenge' })}
             slideFrom="right"
             delay={200}
             oscillationSpeed={2400}
+            icon="star"
             style={{
               flex: 1,
               minHeight: 80,
@@ -125,15 +183,14 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
               marginVertical: 2,
             }}
           >
-            <ButtonText fontSize="$2xl" fontWeight="$bold">
-              Challenge
-            </ButtonText>
+            Challenge
           </AnimatedButton>
           <AnimatedButton
             onPress={() => navigation.navigate('Game', { mode: 'timeAttack' })}
             slideFrom="left"
             delay={300}
             oscillationSpeed={1600}
+            icon="play"
             style={{
               flex: 1,
               minHeight: 80,
@@ -141,15 +198,14 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
               marginVertical: 2,
             }}
           >
-            <ButtonText fontSize="$2xl" fontWeight="$bold">
-              Time Attack
-            </ButtonText>
+            Time Attack
           </AnimatedButton>
           <AnimatedButton
             onPress={() => navigation.navigate('Tutorial')}
             slideFrom="right"
             delay={400}
             oscillationSpeed={2200}
+            icon="book"
             style={{
               flex: 1,
               minHeight: 80,
@@ -157,15 +213,14 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
               marginVertical: 2,
             }}
           >
-            <ButtonText fontSize="$2xl" fontWeight="$bold">
-              How to Play
-            </ButtonText>
+            How to Play
           </AnimatedButton>
           <AnimatedButton
             onPress={() => navigation.navigate('Settings')}
             slideFrom="left"
             delay={500}
             oscillationSpeed={2000}
+            icon="gear"
             style={{
               flex: 1,
               minHeight: 80,
@@ -173,15 +228,14 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
               marginVertical: 2,
             }}
           >
-            <ButtonText fontSize="$2xl" fontWeight="$bold">
-              Settings
-            </ButtonText>
+            Settings
           </AnimatedButton>
           <AnimatedButton
             onPress={() => navigation.navigate('Title')}
             slideFrom="right"
             delay={600}
             oscillationSpeed={2600}
+            icon="title"
             style={{
               flex: 1,
               minHeight: 80,
@@ -189,9 +243,7 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
               marginVertical: 2,
             }}
           >
-            <ButtonText fontSize="$2xl" fontWeight="$bold">
-              Back to Title Screen
-            </ButtonText>
+            Back to Title Screen
           </AnimatedButton>
         </VStack>
         {showOnboarding ? (

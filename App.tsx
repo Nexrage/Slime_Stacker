@@ -11,10 +11,19 @@ import { TutorialScreen } from '@/screens/TutorialScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { LevelSelectScreen } from '@/screens/LevelSelectScreen';
 import { GameScreen } from '@/screens/GameScreen';
+import { useFonts } from 'expo-font';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    'Kenney-Future-Narrow': require('./assets/kenney_ui-pack/Font/Kenney Future Narrow.ttf'),
+    'Kenney-Future': require('./assets/kenney_ui-pack/Font/Kenney Future.ttf'),
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
