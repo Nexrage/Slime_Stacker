@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loadSettings, saveSettings, Settings } from '@/utils/storage';
 import { audio } from '@/utils/audio';
+import { audioEngine } from '@/utils/audioEngine';
 import * as Haptics from 'expo-haptics';
 
 export const SettingsScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
@@ -25,12 +26,16 @@ export const SettingsScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
       setMusic(s.music);
       setHaptics(s.haptics);
       audio.setSettings(s);
+      audioEngine.setEnabled(s.sound);
     });
   }, []);
 
   useEffect(() => {
     const s: Settings = { sound, music, haptics };
-    saveSettings(s).then(() => audio.setSettings(s));
+    saveSettings(s).then(() => {
+      audio.setSettings(s);
+      audioEngine.setEnabled(sound);
+    });
   }, [sound, music, haptics]);
 
   return (

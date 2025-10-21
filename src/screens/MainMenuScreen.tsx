@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   Box,
   Button,
@@ -10,6 +10,7 @@ import {
 } from '@gluestack-ui/themed';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loadSettings, updateSettings } from '@/utils/storage';
+import { audioEngine } from '@/utils/audioEngine';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,6 +21,61 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { ImageBackground } from 'react-native';
+
+const SmallMenuButton: React.FC<{
+  onPress: () => void;
+  children: React.ReactNode;
+  icon?: 'play' | 'star' | 'gear' | 'book' | 'title' | undefined;
+}> = ({ onPress, children, icon }) => {
+  return (
+    <ImageBackground
+      resizeMode="stretch"
+      source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_gloss.png')}
+      style={{ borderRadius: 8, overflow: 'hidden' }}
+    >
+      <Button
+        onPress={() => {
+          audioEngine.playClick();
+          onPress();
+        }}
+        size="md"
+        variant="link"
+        style={{ backgroundColor: 'transparent', paddingHorizontal: 12, paddingVertical: 6 }}
+      >
+        <HStack alignItems="center" space="sm">
+          {icon === 'book' ? (
+            <GSImage
+              alt="tutorial"
+              source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/icon_square.png')}
+              style={{ width: 20, height: 20 }}
+            />
+          ) : null}
+          {icon === 'gear' ? (
+            <GSImage
+              alt="settings"
+              source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/icon_outline_circle.png')}
+              style={{ width: 20, height: 20 }}
+            />
+          ) : null}
+          {icon === 'title' ? (
+            <GSImage
+              alt="back"
+              source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/arrow_basic_w.png')}
+              style={{ width: 20, height: 20 }}
+            />
+          ) : null}
+          <ButtonText
+            style={{ fontFamily: 'Kenney-Future-Narrow' }}
+            fontSize="$lg"
+            fontWeight="bold"
+          >
+            {children}
+          </ButtonText>
+        </HStack>
+      </Button>
+    </ImageBackground>
+  );
+};
 
 const AnimatedButton: React.FC<{
   onPress: () => void;
@@ -73,10 +129,18 @@ const AnimatedButton: React.FC<{
       <ImageBackground
         resizeMode="stretch"
         source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_gloss.png')}
-        style={{ flex: 1, borderRadius: 8, overflow: 'hidden' }}
+        style={{
+          flex: 1,
+          borderRadius: 8,
+          overflow: 'hidden',
+          transform: style.transform || [],
+        }}
       >
         <Button
-          onPress={onPress}
+          onPress={() => {
+            audioEngine.playClick();
+            onPress();
+          }}
           size="xl"
           variant="link"
           style={[
@@ -129,8 +193,12 @@ const AnimatedButton: React.FC<{
               />
             ) : null}
             <ButtonText
-              style={{ fontFamily: 'Kenney-Future-Narrow' }}
-              fontSize="$2xl"
+              style={{
+                fontFamily: 'Kenney-Future-Narrow',
+                flexShrink: 1,
+                textAlign: 'center',
+              }}
+              fontSize="$xl"
               fontWeight="bold"
             >
               {children}
@@ -143,17 +211,9 @@ const AnimatedButton: React.FC<{
 };
 
 export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  useEffect(() => {
-    loadSettings().then(s => setShowOnboarding(!s.onboarded));
-  }, []);
-  const dismissOnboarding = async () => {
-    await updateSettings({ onboarded: true });
-    setShowOnboarding(false);
-  };
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <Box flex={1} justifyContent="center" px="$4">
+      <Box flex={1} px="$4">
         <VStack space="md" flex={1} justifyContent="center">
           <AnimatedButton
             onPress={() => navigation.navigate('LevelSelect')}
@@ -200,72 +260,25 @@ export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
           >
             Time Attack
           </AnimatedButton>
-          <AnimatedButton
-            onPress={() => navigation.navigate('Tutorial')}
-            slideFrom="right"
-            delay={400}
-            oscillationSpeed={2200}
-            icon="book"
-            style={{
-              flex: 1,
-              minHeight: 80,
-              transform: [{ skewY: '-2deg' }],
-              marginVertical: 2,
-            }}
-          >
-            How to Play
-          </AnimatedButton>
-          <AnimatedButton
-            onPress={() => navigation.navigate('Settings')}
-            slideFrom="left"
-            delay={500}
-            oscillationSpeed={2000}
-            icon="gear"
-            style={{
-              flex: 1,
-              minHeight: 80,
-              transform: [{ skewY: '2deg' }],
-              marginVertical: 2,
-            }}
-          >
-            Settings
-          </AnimatedButton>
-          <AnimatedButton
-            onPress={() => navigation.navigate('Title')}
-            slideFrom="right"
-            delay={600}
-            oscillationSpeed={2600}
-            icon="title"
-            style={{
-              flex: 1,
-              minHeight: 80,
-              transform: [{ skewY: '-2deg' }],
-              marginVertical: 2,
-            }}
-          >
-            Back to Title Screen
-          </AnimatedButton>
-        </VStack>
-        {showOnboarding ? (
-          <Box
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.6)',
-            }}
-            accessibilityLabel="Onboarding Overlay"
-          >
-            <Box style={{ margin: 24, padding: 16, backgroundColor: '#111', borderRadius: 8 }}>
-              <Heading mb="$3">How to Play</Heading>
-              <Button onPress={dismissOnboarding}>
-                <ButtonText>Got it</ButtonText>
-              </Button>
+          <Box flex={1} />
+          <VStack space="sm" alignItems="stretch" mt="$4" mb="$6">
+            <Box alignSelf="stretch">
+              <SmallMenuButton icon="book" onPress={() => navigation.navigate('Tutorial')}>
+                How to Play
+              </SmallMenuButton>
             </Box>
-          </Box>
-        ) : null}
+            <Box alignSelf="stretch">
+              <SmallMenuButton icon="gear" onPress={() => navigation.navigate('Settings')}>
+                Settings
+              </SmallMenuButton>
+            </Box>
+            <Box alignSelf="stretch">
+              <SmallMenuButton icon="title" onPress={() => navigation.navigate('Title')}>
+                Back to Title
+              </SmallMenuButton>
+            </Box>
+          </VStack>
+        </VStack>
       </Box>
     </SafeAreaView>
   );

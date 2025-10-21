@@ -21,6 +21,7 @@ import { GameBoard } from '@/components/GameBoard';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { submitHighscore, loadSettings, Settings } from '@/utils/storage';
 import { audio } from '@/utils/audio';
+import { audioEngine } from '@/utils/audioEngine';
 import { AppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { ImageBackground } from 'react-native';
@@ -170,16 +171,33 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
               {timerText}
             </Heading>
           )}
-          <Button
-            size="sm"
-            onPress={() => {
-              playHaptic();
-              setActive(false);
-            }}
-            variant="outline"
+          <ImageBackground
+            resizeMode="stretch"
+            source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_gloss.png')}
+            style={{ borderRadius: 6, overflow: 'hidden' }}
           >
-            <ButtonText>⏸</ButtonText>
-          </Button>
+            <Button
+              size="sm"
+              onPress={() => {
+                audioEngine.playClick();
+                playHaptic();
+                setActive(false);
+              }}
+              variant="link"
+              style={{ backgroundColor: 'transparent', paddingHorizontal: 8 }}
+            >
+              <HStack alignItems="center" space="xs">
+                <GSImage
+                  alt="pause"
+                  source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/icon_square.png')}
+                  style={{ width: 16, height: 16 }}
+                />
+                <ButtonText style={{ fontFamily: 'Kenney-Future-Narrow', fontSize: 14 }}>
+                  Pause
+                </ButtonText>
+              </HStack>
+            </Button>
+          </ImageBackground>
         </HStack>
       </HStack>
 
@@ -312,6 +330,7 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
                 >
                   <Button
                     onPress={() => {
+                      audioEngine.playClick();
                       playHaptic();
                       setActive(true);
                     }}
@@ -336,6 +355,7 @@ export const GameScreen: React.FC<any> = ({ navigation, route }) => {
                 >
                   <Button
                     onPress={() => {
+                      audioEngine.playClick();
                       playHaptic();
                       navigation.popToTop();
                     }}

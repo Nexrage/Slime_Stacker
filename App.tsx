@@ -12,6 +12,7 @@ import { SettingsScreen } from '@/screens/SettingsScreen';
 import { LevelSelectScreen } from '@/screens/LevelSelectScreen';
 import { GameScreen } from '@/screens/GameScreen';
 import { useFonts } from 'expo-font';
+import { audioEngine } from '@/utils/audioEngine';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,6 +21,18 @@ export default function App() {
     'Kenney-Future-Narrow': require('./assets/kenney_ui-pack/Font/Kenney Future Narrow.ttf'),
     'Kenney-Future': require('./assets/kenney_ui-pack/Font/Kenney Future.ttf'),
   });
+
+  // Initialize audio engine when fonts are loaded
+  React.useEffect(() => {
+    if (fontsLoaded) {
+      audioEngine.initialize().then(() => {
+        // Test audio after initialization
+        setTimeout(() => {
+          audioEngine.testAudio();
+        }, 1000);
+      });
+    }
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return null;
