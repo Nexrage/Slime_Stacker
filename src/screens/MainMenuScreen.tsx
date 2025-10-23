@@ -11,6 +11,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loadSettings, updateSettings } from '@/utils/storage';
 import { audioEngine } from '@/utils/audioEngine';
+import { DepthFog } from '@/components/DepthFog';
+import { LightRays } from '@/components/LightRays';
+import { GridBackground } from '@/components/GridBackground';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,9 +23,64 @@ import Animated, {
   withRepeat,
   withSequence,
 } from 'react-native-reanimated';
-import { ImageBackground } from 'react-native';
+import { ImageBackground, View } from 'react-native';
 
 const SmallMenuButton: React.FC<{
+  onPress: () => void;
+  children: React.ReactNode;
+  icon?: 'play' | 'star' | 'gear' | 'book' | 'title' | undefined;
+}> = ({ onPress, children, icon }) => {
+  return (
+    <ImageBackground
+      resizeMode="stretch"
+      source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/button_rectangle_depth_gloss.png')}
+      style={{ borderRadius: 8, overflow: 'hidden' }}
+    >
+      <Button
+        onPress={() => {
+          audioEngine.playClick();
+          onPress();
+        }}
+        size="md"
+        variant="link"
+        style={{ backgroundColor: 'transparent', paddingHorizontal: 12, paddingVertical: 6 }}
+      >
+        <HStack alignItems="center" space="sm">
+          {icon === 'book' ? (
+            <GSImage
+              alt="tutorial"
+              source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/icon_square.png')}
+              style={{ width: 20, height: 20 }}
+            />
+          ) : null}
+          {icon === 'gear' ? (
+            <GSImage
+              alt="settings"
+              source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/icon_outline_circle.png')}
+              style={{ width: 20, height: 20 }}
+            />
+          ) : null}
+          {icon === 'title' ? (
+            <GSImage
+              alt="back"
+              source={require('../../assets/kenney_ui-pack/PNG/Yellow/Default/arrow_basic_w.png')}
+              style={{ width: 20, height: 20 }}
+            />
+          ) : null}
+          <ButtonText
+            style={{ fontFamily: 'Kenney-Future-Narrow' }}
+            fontSize="$lg"
+            fontWeight="bold"
+          >
+            {children}
+          </ButtonText>
+        </HStack>
+      </Button>
+    </ImageBackground>
+  );
+};
+
+const TinyMenuButton: React.FC<{
   onPress: () => void;
   children: React.ReactNode;
   icon?: 'play' | 'star' | 'gear' | 'book' | 'title' | undefined;
@@ -212,74 +270,94 @@ const AnimatedButton: React.FC<{
 
 export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <Box flex={1} px="$4">
-        <VStack space="md" flex={1} justifyContent="center">
-          <AnimatedButton
-            onPress={() => navigation.navigate('LevelSelect')}
-            slideFrom="left"
-            delay={100}
-            oscillationSpeed={1800}
-            icon="play"
-            style={{
-              flex: 1,
-              minHeight: 80,
-              transform: [{ skewY: '2deg' }],
-              marginVertical: 2,
-            }}
-          >
-            Round Clear
-          </AnimatedButton>
-          <AnimatedButton
-            onPress={() => navigation.navigate('Game', { mode: 'challenge' })}
-            slideFrom="right"
-            delay={200}
-            oscillationSpeed={2400}
-            icon="star"
-            style={{
-              flex: 1,
-              minHeight: 80,
-              transform: [{ skewY: '-2deg' }],
-              marginVertical: 2,
-            }}
-          >
-            Challenge
-          </AnimatedButton>
-          <AnimatedButton
-            onPress={() => navigation.navigate('Game', { mode: 'timeAttack' })}
-            slideFrom="left"
-            delay={300}
-            oscillationSpeed={1600}
-            icon="play"
-            style={{
-              flex: 1,
-              minHeight: 80,
-              transform: [{ skewY: '2deg' }],
-              marginVertical: 2,
-            }}
-          >
-            Time Attack
-          </AnimatedButton>
-          <Box flex={1} />
-          <VStack space="sm" alignItems="stretch" mt="$4" mb="$6">
-            <Box alignSelf="stretch">
-              <SmallMenuButton icon="book" onPress={() => navigation.navigate('Tutorial')}>
-                How to Play
-              </SmallMenuButton>
-            </Box>
-            <Box alignSelf="stretch">
-              <SmallMenuButton icon="gear" onPress={() => navigation.navigate('Settings')}>
-                Settings
-              </SmallMenuButton>
-            </Box>
-            <Box alignSelf="stretch">
-              <SmallMenuButton icon="title" onPress={() => navigation.navigate('Title')}>
-                Back to Title
-              </SmallMenuButton>
-            </Box>
+    <View style={{ flex: 1, backgroundColor: '#F8F9FF' }}>
+      {/* Ambient effects outside safe area, full screen */}
+      <DepthFog visible intensity={0.1} color="#2D1B3D" />
+      {/* Grid background layered over depth fog */}
+      <GridBackground spacing={64} thickness={6} color="#F8F9FF" />
+      <LightRays visible rayCount={3} intensity={1} color="#F8F9FF" />
+
+      <SafeAreaView style={{ flex: 1 }}>
+        <Box flex={1} px="$4">
+          <VStack space="md" flex={1} justifyContent="center">
+            <AnimatedButton
+              onPress={() => navigation.navigate('LevelSelect')}
+              slideFrom="left"
+              delay={100}
+              oscillationSpeed={1800}
+              icon="play"
+              style={{
+                flex: 1,
+                minHeight: 80,
+                transform: [{ skewY: '2deg' }],
+                marginVertical: 2,
+              }}
+            >
+              Round Clear
+            </AnimatedButton>
+            <AnimatedButton
+              onPress={() => navigation.navigate('Game', { mode: 'challenge' })}
+              slideFrom="right"
+              delay={200}
+              oscillationSpeed={2400}
+              icon="star"
+              style={{
+                flex: 1,
+                minHeight: 80,
+                transform: [{ skewY: '-2deg' }],
+                marginVertical: 2,
+              }}
+            >
+              Challenge
+            </AnimatedButton>
+            <AnimatedButton
+              onPress={() => navigation.navigate('Game', { mode: 'timeAttack' })}
+              slideFrom="left"
+              delay={300}
+              oscillationSpeed={1600}
+              icon="play"
+              style={{
+                flex: 1,
+                minHeight: 80,
+                transform: [{ skewY: '2deg' }],
+                marginVertical: 2,
+              }}
+            >
+              Time Attack
+            </AnimatedButton>
+            <Box flex={1} />
+            <VStack space="sm" alignItems="stretch" mt="$4" mb="$6">
+              <Box alignSelf="stretch">
+                <SmallMenuButton icon="book" onPress={() => navigation.navigate('Tutorial')}>
+                  How to Play
+                </SmallMenuButton>
+              </Box>
+              <Box alignSelf="stretch">
+                <SmallMenuButton icon="gear" onPress={() => navigation.navigate('Settings')}>
+                  Settings
+                </SmallMenuButton>
+              </Box>
+              <HStack space="sm" alignItems="stretch">
+                <Box flex={1}>
+                  <TinyMenuButton icon="book" onPress={() => navigation.navigate('Credits')}>
+                    Credits
+                  </TinyMenuButton>
+                </Box>
+                <Box flex={1}>
+                  <TinyMenuButton icon="star" onPress={() => console.log('Share Game pressed')}>
+                    Share Game
+                  </TinyMenuButton>
+                </Box>
+              </HStack>
+              <Box alignSelf="stretch">
+                <SmallMenuButton icon="title" onPress={() => navigation.navigate('Title')}>
+                  Back to Title
+                </SmallMenuButton>
+              </Box>
+            </VStack>
           </VStack>
-        </VStack>
-      </Box>
-    </SafeAreaView>
+        </Box>
+      </SafeAreaView>
+    </View>
   );
 };

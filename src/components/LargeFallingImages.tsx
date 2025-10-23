@@ -43,7 +43,7 @@ export const LargeFallingImages: React.FC<LargeFallingImagesProps> = ({ visible,
     ];
 
     const fallingImages: FallingImage[] = imageData.flatMap((img, imgIndex) => {
-      const instances = 4; // 4 instances per color
+      const instances = 2; // 2 instances per color
       const totalColumns = instances * imageData.length; // distribute across all images
       const margin = SCREEN_WIDTH * 0.02; // smaller side margins for more spread
       const usableWidth = SCREEN_WIDTH - margin * 2;

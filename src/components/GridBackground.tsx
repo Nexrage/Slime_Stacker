@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Canvas, Rect, Group, Mask, LinearGradient, vec } from '@shopify/react-native-skia';
+import { Canvas, Rect } from '@shopify/react-native-skia';
 
 interface GridBackgroundProps {
   spacing?: number; // distance between grid lines
@@ -35,41 +35,12 @@ export const GridBackground: React.FC<GridBackgroundProps> = ({
     >
       {size && (
         <Canvas style={{ position: 'absolute', width: size.width, height: size.height }}>
-          <Mask
-            mask={
-              <Rect x={0} y={0} width={size.width} height={size.height}>
-                <LinearGradient
-                  start={vec(0, 0)}
-                  end={vec(0, size.height)}
-                  colors={[`${color}00`, `${color}FF`, `${color}FF`]}
-                  positions={[0, 0.5, 1]}
-                />
-              </Rect>
-            }
-          >
-            <Group>
-              {verticalLines.map((x, i) => (
-                <Rect
-                  key={`v-${i}`}
-                  x={x}
-                  y={0}
-                  width={thickness}
-                  height={size.height}
-                  color={color}
-                />
-              ))}
-              {horizontalLines.map((y, i) => (
-                <Rect
-                  key={`h-${i}`}
-                  x={0}
-                  y={y}
-                  width={size.width}
-                  height={thickness}
-                  color={color}
-                />
-              ))}
-            </Group>
-          </Mask>
+          {verticalLines.map((x, i) => (
+            <Rect key={`v-${i}`} x={x} y={0} width={thickness} height={size.height} color={color} />
+          ))}
+          {horizontalLines.map((y, i) => (
+            <Rect key={`h-${i}`} x={0} y={y} width={size.width} height={thickness} color={color} />
+          ))}
         </Canvas>
       )}
     </View>

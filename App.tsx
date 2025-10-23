@@ -11,6 +11,7 @@ import { TutorialScreen } from '@/screens/TutorialScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { LevelSelectScreen } from '@/screens/LevelSelectScreen';
 import { GameScreen } from '@/screens/GameScreen';
+import { CreditsScreen } from '@/screens/CreditsScreen';
 import { useFonts } from 'expo-font';
 import { audioEngine } from '@/utils/audioEngine';
 
@@ -49,6 +50,7 @@ export default function App() {
               <Stack.Screen name="Settings" component={SettingsScreen} />
               <Stack.Screen name="LevelSelect" component={LevelSelectScreen} />
               <Stack.Screen name="Game" component={GameScreen} />
+              <Stack.Screen name="Credits" component={CreditsScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </GluestackUIProvider>

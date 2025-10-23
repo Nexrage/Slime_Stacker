@@ -248,12 +248,12 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0)' }}>
-      {/* Grid background behind all ambient layers */}
-      <GridBackground spacing={64} thickness={6} color="#FFFFFF" />
+    <View style={{ flex: 1, backgroundColor: '#F8F9FF' }}>
       {/* Ambient effects outside safe area, full screen */}
-      <DepthFog visible intensity={0.6} color="#2D1B3D" />
-      <LightRays visible rayCount={4} intensity={1} color="#FFFFFF" />
+      <DepthFog visible intensity={0.1} color="#2D1B3D" />
+      {/* Grid background layered over depth fog */}
+      <GridBackground spacing={64} thickness={6} color="#F8F9FF" />
+      <LightRays visible rayCount={3} intensity={1} color="#F8F9FF" />
       {/* <AtmosphericParticles
         visible
         particleCount={120}
@@ -284,8 +284,8 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
             <Animated.View style={titleAnimatedStyle}>
               <VStack alignItems="center" space="sm" mb="$12">
                 <HStack alignItems="center" space="sm">
-                  {['S', 't', 'a', 'r'].map((letter, index) => (
-                    <AnimatedLetter key={`star-${index}`} letter={letter} delay={index * 200} />
+                  {['S', 'l', 'i', 'm', 'e'].map((letter, index) => (
+                    <AnimatedLetter key={`slime-${index}`} letter={letter} delay={index * 200} />
                   ))}
                 </HStack>
                 <HStack alignItems="center" space="sm">

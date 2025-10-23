@@ -21,12 +21,12 @@ export const LightRays: React.FC<LightRaysProps> = ({
   const rays = useMemo(() => {
     const arr = Array.from({ length: rayCount }, (_, i) => i);
     return arr.map(i => ({
-      width: 0.25 + (i % 2) * 0.1, // width fraction - made wider
-      height: 1.5 + (i % 2) * 0.3, // height fraction - extend past bottom
-      phase: i * 0.37,
-      speed: 0.05 + (i % 3) * 0.03, // horizontal movement speed - much slower
-      amplitude: 10 + (i % 2) * 5, // vertical oscillation amplitude
-      startDelay: i * 2000, // stagger start times
+      width: 0.08 + (i % 2) * 0.04, // width fraction - much narrower for focus
+      height: 1.8 + (i % 2) * 0.4, // height fraction - extend further
+      phase: i * 0.45,
+      speed: 0.08 + (i % 3) * 0.04, // horizontal movement speed - faster for intensity
+      amplitude: 15 + (i % 2) * 8, // vertical oscillation amplitude - more dramatic
+      startDelay: i * 1500, // stagger start times - closer together
     }));
   }, [rayCount]);
 
@@ -79,11 +79,11 @@ export const LightRays: React.FC<LightRaysProps> = ({
             // Fade in/out at edges
             const edgeFade = Math.min(1, Math.min(x + w, screenWidth - x) / (w * 0.5));
 
-            // Pulsing opacity with multiple frequencies
+            // More intense pulsing opacity with higher base values
             const alpha =
               Math.max(0, Math.min(1, intensity)) *
               edgeFade *
-              (0.6 + 0.3 * Math.sin(t * 0.5) + 0.1 * Math.sin(t * 1.7 + r.phase));
+              (0.8 + 0.4 * Math.sin(t * 0.7) + 0.2 * Math.sin(t * 2.1 + r.phase));
 
             return (
               <Group
@@ -95,7 +95,7 @@ export const LightRays: React.FC<LightRaysProps> = ({
                   <LinearGradient
                     start={vec(0, 0)}
                     end={vec(w, 0)}
-                    colors={[`${color}00`, `${color}33`, `${color}55`, `${color}00`]}
+                    colors={[`${color}00`, `${color}66`, `${color}AA`, `${color}66`, `${color}00`]}
                   />
                 </Rect>
               </Group>
