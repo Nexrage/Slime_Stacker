@@ -133,6 +133,17 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
     }
   }, [showLargeFalling]);
 
+  // Periodic random falling images - continuous loop
+  const [showRandomFalling, setShowRandomFalling] = useState(false);
+  useEffect(() => {
+    // Start the first random falling after 5 seconds
+    const initialTimer = setTimeout(() => {
+      setShowRandomFalling(true);
+    }, 5000);
+
+    return () => clearTimeout(initialTimer);
+  }, []);
+
   const titleAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: titleScale.value }],
     opacity: titleOpacity.value,
@@ -274,6 +285,23 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
       <LargeFallingImages
         visible={showLargeFalling}
         onComplete={() => setShowLargeFalling(false)}
+      />
+
+      {/* Periodic random falling images */}
+      <LargeFallingImages
+        visible={showRandomFalling}
+        onComplete={() => {
+          // Animation completed, restart after a short delay
+          setTimeout(() => {
+            setShowRandomFalling(false);
+            // Trigger a new falling sequence after a brief pause
+            setTimeout(() => {
+              setShowRandomFalling(true);
+            }, 100);
+          }, 2000 + Math.random() * 3000); // Random delay between 2-5 seconds
+        }}
+        maxImages={3}
+        includeRedJelly
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right', 'bottom']}>

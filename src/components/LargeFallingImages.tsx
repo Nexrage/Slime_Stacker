@@ -13,6 +13,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 interface LargeFallingImagesProps {
   visible: boolean;
   onComplete?: () => void;
+  maxImages?: number; // Limit the number of falling images
 }
 
 interface FallingImage {
@@ -27,56 +28,66 @@ interface FallingImage {
   duration: number;
 }
 
-export const LargeFallingImages: React.FC<LargeFallingImagesProps> = ({ visible, onComplete }) => {
+export const LargeFallingImages: React.FC<LargeFallingImagesProps> = ({
+  visible,
+  onComplete,
+  maxImages,
+}) => {
   const [images, setImages] = useState<FallingImage[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
   const [ended, setEnded] = useState(false);
+  const [runId, setRunId] = useState(0);
 
   useEffect(() => {
     if (!visible) return;
 
-    const imageData = [
-      { image: require('../../assets/sprites/confetti_images/green.png'), color: 'green' },
-      { image: require('../../assets/sprites/confetti_images/blue.png'), color: 'blue' },
-      { image: require('../../assets/sprites/confetti_images/yellow.png'), color: 'yellow' },
-      { image: require('../../assets/sprites/confetti_images/red.png'), color: 'red' },
+    // Reset run state when (re)starting a visible sequence
+    setEnded(false);
+    setCompletedCount(0);
+    setRunId(prev => prev + 1);
+
+    // Use idle jelly GIFs for all falling images (random selection each instance)
+    const imageData: Array<{ image: any; color: string }> = [
+      { image: require('../../assets/sprites/gifs/blue-jelly-idle.gif'), color: 'blue-jelly' },
+      { image: require('../../assets/sprites/gifs/red-jelly-idle.gif'), color: 'red-jelly' },
+      { image: require('../../assets/sprites/gifs/yellow-jelly-idle.gif'), color: 'yellow-jelly' },
+      { image: require('../../assets/sprites/gifs/jelly-idle.gif'), color: 'jelly' },
     ];
 
-    const fallingImages: FallingImage[] = imageData.flatMap((img, imgIndex) => {
-      const instances = 2; // 2 instances per color
-      const totalColumns = instances * imageData.length; // distribute across all images
-      const margin = SCREEN_WIDTH * 0.02; // smaller side margins for more spread
+    const totalCount = Math.max(1, typeof maxImages === 'number' && maxImages > 0 ? maxImages : 8);
+
+    const fallingImages: FallingImage[] = Array.from({ length: totalCount }, (_, instanceIndex) => {
+      const choice = imageData[Math.floor(Math.random() * imageData.length)];
+
+      // Distribute horizontally across screen with jitter
+      const margin = SCREEN_WIDTH * 0.02;
       const usableWidth = SCREEN_WIDTH - margin * 2;
+      const baseT = totalCount > 1 ? instanceIndex / (totalCount - 1) : 0.5;
+      const tVar = (Math.random() - 0.5) * 0.4; // spacing variance
+      const t = Math.min(1, Math.max(0, baseT + tVar));
+      const jitter = (Math.random() - 0.5) * 80;
+      const leftBias = -SCREEN_WIDTH * 0.3;
 
-      return Array.from({ length: instances }, (_, instanceIndex) => {
-        const globalIndex = imgIndex * instances + instanceIndex; // 0..totalColumns-1
-        const baseT = totalColumns > 1 ? globalIndex / (totalColumns - 1) : 0.5; // 0..1
-        const tVar = (Math.random() - 0.5) * 0.4; // spacing variance
-        const t = Math.min(1, Math.max(0, baseT + tVar));
-        const jitter = (Math.random() - 0.5) * 80; // larger horizontal jitter
-        const leftBias = -SCREEN_WIDTH * 0.3; // shift distribution ~6% to the left
+      // Staggered start times and varied durations
+      const baseDelay = Math.floor(instanceIndex * 180);
+      const randomDelay = Math.floor(Math.random() * 800);
+      const delay = baseDelay + randomDelay;
 
-        // Staggered start times with extra random offset so starts are more varied
-        const baseDelay = imgIndex * 220 + instanceIndex * 200;
-        const randomDelay = Math.floor(Math.random() * 800); // 0-800ms
-        const delay = baseDelay + randomDelay;
-
-        return {
-          id: `${img.color}-${instanceIndex}`,
-          image: img.image,
-          startX: Math.max(-50, margin + t * usableWidth + jitter + leftBias), // biased left
-          startY: -220 - Math.random() * 120, // Start further above the screen
-          endY: SCREEN_HEIGHT + 180, // End below screen
-          size: 140 + Math.random() * 100, // Larger: 140-240 px
-          rotation: Math.random() * 360, // Random initial rotation
-          delay, // Staggered timing with variance
-          duration: 3800 + Math.random() * 2200, // 3.8 - 6.0 seconds
-        } as FallingImage;
-      });
+      return {
+        id: `${runId}-${choice.color}-${instanceIndex}`,
+        image: choice.image,
+        startX: Math.max(-50, margin + t * usableWidth + jitter + leftBias),
+        startY: -220 - Math.random() * 120,
+        endY: SCREEN_HEIGHT + 180,
+        size: 96 + Math.random() * 64, // 96 - 160 px, better for GIF perf
+        rotation: Math.random() * 360,
+        delay,
+        duration: 3800 + Math.random() * 2200, // 3.8 - 6.0 seconds
+      } as FallingImage;
     });
 
     setImages(fallingImages);
-  }, [visible]);
+  }, [visible, maxImages]);
 
   // When all images finish, unmount and notify parent
   useEffect(() => {
@@ -94,6 +105,7 @@ export const LargeFallingImages: React.FC<LargeFallingImagesProps> = ({ visible,
 
   return (
     <View
+      removeClippedSubviews
       style={{
         position: 'absolute',
         top: 0,
@@ -151,12 +163,19 @@ const FallingImageComponent: React.FC<FallingImageComponentProps> = ({ image, on
           position: 'absolute',
           width: image.size,
           height: image.size,
+          // Rasterization hints for better GIF transform performance
+          renderToHardwareTextureAndroid: true,
+          shouldRasterizeIOS: true,
+          needsOffscreenAlphaCompositing: true,
         },
         animatedStyle,
       ]}
     >
       <Image
         source={image.image}
+        fadeDuration={0}
+        progressiveRenderingEnabled
+        resizeMethod="resize"
         style={{
           width: '100%',
           height: '100%',
