@@ -550,10 +550,10 @@ export const CreditsScreen: React.FC<any> = ({ navigation }) => {
           style={[
             {
               position: 'absolute',
-              top: 0,
+              top: '30%',
               left: 0,
               right: 0,
-              bottom: 0,
+              height: '40%',
               justifyContent: 'center',
               alignItems: 'center',
               backgroundColor: 'transparent',
