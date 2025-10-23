@@ -12,6 +12,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface LargeFallingImagesProps {
   visible: boolean;
+  onComplete?: () => void;
 }
 
 interface FallingImage {
@@ -26,9 +27,10 @@ interface FallingImage {
   duration: number;
 }
 
-export const LargeFallingImages: React.FC<LargeFallingImagesProps> = ({ visible }) => {
+export const LargeFallingImages: React.FC<LargeFallingImagesProps> = ({ visible, onComplete }) => {
   const [images, setImages] = useState<FallingImage[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
+  const [ended, setEnded] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -76,11 +78,19 @@ export const LargeFallingImages: React.FC<LargeFallingImagesProps> = ({ visible 
     setImages(fallingImages);
   }, [visible]);
 
+  // When all images finish, unmount and notify parent
+  useEffect(() => {
+    if (visible && images.length > 0 && completedCount >= images.length) {
+      setEnded(true);
+      onComplete?.();
+    }
+  }, [completedCount, images.length, visible, onComplete]);
+
   const handleImageComplete = () => {
     setCompletedCount(prev => prev + 1);
   };
 
-  if (!visible || images.length === 0) return null;
+  if (!visible || images.length === 0 || ended) return null;
 
   return (
     <View

@@ -33,8 +33,14 @@ export const LightRays: React.FC<LightRaysProps> = ({
   useEffect(() => {
     let raf = 0;
     let start = Date.now();
+    let last = 0;
+    const targetDelta = 1000 / 30; // ~30 FPS
     const loop = () => {
-      setTimeMs(Date.now() - start);
+      const now = Date.now() - start;
+      if (now - last >= targetDelta) {
+        setTimeMs(now);
+        last = now;
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

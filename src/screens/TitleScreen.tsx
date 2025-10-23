@@ -125,11 +125,13 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
     return () => clearTimeout(t);
   }, []);
 
-  // Delay the start of the continuous TileConfetti so cannons can finish first
+  // Delay the start of the continuous TileConfetti until large images complete
   useEffect(() => {
-    const t = setTimeout(() => setConfettiReady(true), 1200);
-    return () => clearTimeout(t);
-  }, []);
+    if (!showLargeFalling) {
+      const t = setTimeout(() => setConfettiReady(true), 300);
+      return () => clearTimeout(t);
+    }
+  }, [showLargeFalling]);
 
   const titleAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: titleScale.value }],
@@ -159,8 +161,8 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
         delay,
         withRepeat(
           withSequence(
-            withSpring(12, { damping: 4, stiffness: 200 }),
-            withSpring(0, { damping: 4, stiffness: 200 })
+            withSpring(10, { damping: 6, stiffness: 160 }),
+            withSpring(0, { damping: 6, stiffness: 160 })
           ),
           -1,
           false
@@ -172,10 +174,10 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
         delay + 500,
         withRepeat(
           withSequence(
-            withTiming(15, { duration: 800 }),
-            withDecay({ velocity: 0.2, clamp: [0, 20] }),
-            withTiming(-15, { duration: 800 }),
-            withDecay({ velocity: -0.2, clamp: [-20, 0] })
+            withTiming(10, { duration: 1200 }),
+            withDecay({ velocity: 0.15, clamp: [0, 14] }),
+            withTiming(-10, { duration: 1200 }),
+            withDecay({ velocity: -0.15, clamp: [-14, 0] })
           ),
           -1,
           false
@@ -187,10 +189,10 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
         delay + 1000,
         withRepeat(
           withSequence(
-            withSpring(1.3, { damping: 6, stiffness: 150 }),
-            withSpring(0.8, { damping: 6, stiffness: 150 }),
-            withSpring(1.1, { damping: 6, stiffness: 150 }),
-            withSpring(1, { damping: 6, stiffness: 150 })
+            withSpring(1.2, { damping: 8, stiffness: 140 }),
+            withSpring(0.9, { damping: 8, stiffness: 140 }),
+            withSpring(1.05, { damping: 8, stiffness: 140 }),
+            withSpring(1, { damping: 8, stiffness: 140 })
           ),
           -1,
           false
@@ -202,11 +204,11 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
         delay + 1500,
         withRepeat(
           withSequence(
-            withTiming(3, { duration: 200 }),
-            withTiming(-3, { duration: 200 }),
-            withTiming(2, { duration: 200 }),
-            withTiming(-2, { duration: 200 }),
-            withTiming(0, { duration: 200 })
+            withTiming(2, { duration: 300 }),
+            withTiming(-2, { duration: 300 }),
+            withTiming(1.5, { duration: 300 }),
+            withTiming(-1.5, { duration: 300 }),
+            withTiming(0, { duration: 300 })
           ),
           -1,
           false
@@ -217,7 +219,7 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
       letterGlow.value = withDelay(
         delay + 2000,
         withRepeat(
-          withSequence(withTiming(1, { duration: 1000 }), withTiming(0, { duration: 1000 })),
+          withSequence(withTiming(1, { duration: 1400 }), withTiming(0, { duration: 1400 })),
           -1,
           false
         )
@@ -269,7 +271,10 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
       <TileConfettiCannons visible={true} />
 
       {/* Large falling images before continuous confetti */}
-      <LargeFallingImages visible={showLargeFalling} />
+      <LargeFallingImages
+        visible={showLargeFalling}
+        onComplete={() => setShowLargeFalling(false)}
+      />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right', 'bottom']}>
         <Center flex={1} px="$8" pt="$8">
