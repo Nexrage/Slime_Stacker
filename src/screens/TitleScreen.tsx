@@ -56,6 +56,15 @@ export const TitleScreen: React.FC<any> = ({ navigation }) => {
     // Button spring entrance with reduced springing
     buttonScale.value = withDelay(1000, withSpring(1, { damping: 10, stiffness: 180 }));
     buttonOpacity.value = withDelay(1000, withTiming(1, { duration: 300 }));
+
+    // Start background music
+    console.log('🏠 TitleScreen: Starting background music...');
+    audioEngine.playBackgroundMusic();
+
+    // Log audio status after a short delay to ensure music has started
+    setTimeout(() => {
+      audioEngine.logAudioStatus();
+    }, 2000);
   }, []);
 
   useEffect(() => {

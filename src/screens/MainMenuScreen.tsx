@@ -269,6 +269,10 @@ const AnimatedButton: React.FC<{
 };
 
 export const MainMenuScreen: React.FC<any> = ({ navigation }) => {
+  useEffect(() => {
+    console.log('🏠 MainMenuScreen: Background music should be continuing from TitleScreen...');
+  }, []);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F8F9FF' }}>
       {/* Ambient effects outside safe area, full screen */}

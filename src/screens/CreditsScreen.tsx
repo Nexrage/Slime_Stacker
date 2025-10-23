@@ -489,6 +489,16 @@ export const CreditsScreen: React.FC<any> = ({ navigation }) => {
   const thankYouOpacity = useSharedValue(0);
 
   useEffect(() => {
+    // Pause background music and start credits music
+    console.log('🎬 CreditsScreen: Switching to credits music...');
+    audioEngine.pauseBackgroundMusic();
+    audioEngine.playCreditsMusic();
+
+    // Log audio status after a short delay to ensure music has switched
+    setTimeout(() => {
+      audioEngine.logAudioStatus();
+    }, 1000);
+
     // Set a timeout to show "Thank you" after animation completes
     const timer = setTimeout(() => {
       console.log('Credits animation completed, showing thank you message');
@@ -497,7 +507,13 @@ export const CreditsScreen: React.FC<any> = ({ navigation }) => {
       thankYouOpacity.value = withTiming(1, { duration: 1000 });
     }, 45000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Stop credits music and resume background music when leaving credits
+      console.log('🎬 CreditsScreen: Leaving credits, switching back to background music...');
+      audioEngine.stopCreditsMusic();
+      audioEngine.playBackgroundMusic();
+    };
   }, []);
 
   const thankYouAnimatedStyle = useAnimatedStyle(() => {
