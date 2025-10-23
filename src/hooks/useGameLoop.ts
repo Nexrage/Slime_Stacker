@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { initialEngineState, tick, EngineState, overlayPair, movePair, rotatePair, getGhostPositions, holdSwap, pairPositions, GameEvent, canMove } from '@/game/GameEngine';
 import { audio } from '@/utils/audio';
+import { audioEngine } from '@/utils/audioEngine';
 import { BlockType } from '@/game/BlockTypes';
 import * as Haptics from 'expo-haptics';
 
@@ -196,6 +197,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
 
   const moveLeft = useCallback(() => {
     if (gameOver) return;
+    audioEngine.playTap();
     const s = stateRef.current;
     if (s.falling) s.falling = movePair(s.grid, s.falling, -1, 0);
     setGhost(getGhostPositions(s.grid, s.falling));
@@ -205,6 +207,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
   }, [gameOver]);
   const moveRight = useCallback(() => {
     if (gameOver) return;
+    audioEngine.playTap();
     const s = stateRef.current;
     if (s.falling) s.falling = movePair(s.grid, s.falling, 1, 0);
     setGhost(getGhostPositions(s.grid, s.falling));
@@ -223,6 +226,7 @@ export function useGameLoop(active: boolean = true, mode?: string, opts?: { hapt
   }, [gameOver]);
   const rotate = useCallback(() => {
     if (gameOver) return;
+    audioEngine.playTap();
     const s = stateRef.current;
     if (s.falling) s.falling = rotatePair(s.grid, s.falling);
     // Haptics on rotate
