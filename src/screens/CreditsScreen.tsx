@@ -109,7 +109,7 @@ const AnimatedCredits: React.FC = () => {
               textAlign: 'center',
             }}
           >
-            Slime Stacker
+            slime_stacker
           </Heading>
           <Text
             style={{
@@ -119,7 +119,7 @@ const AnimatedCredits: React.FC = () => {
               fontSize: 18,
             }}
           >
-            A Puzzle Game
+            slime_stacker
           </Text>
         </VStack>
 
