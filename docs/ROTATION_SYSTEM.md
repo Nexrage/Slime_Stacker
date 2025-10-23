@@ -108,6 +108,6 @@ Tap → Rotation 0 (cycles back)
 ## Benefits
 
 1. **Full control**: Players can now access all 4 orientations
-2. **Strategic depth**: More placement options for puzzle solving
+2. **Strategic depth**: More placement options for slime stacking
 3. **Consistent behavior**: Predictable rotation pattern
-4. **Standard feel**: Matches expectations from similar puzzle games
+4. **Standard feel**: Matches expectations from similar slime stacking games

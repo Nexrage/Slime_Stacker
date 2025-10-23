@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the implemented game mechanics for the 6x12 puzzle game.
+This document describes the implemented game mechanics for slime_stacker.
 
 ## Grid Layout
 
@@ -14,7 +14,7 @@ This document describes the implemented game mechanics for the 6x12 puzzle game.
 
 ### Friend Blocks
 
-- **Types**: Rick (hamster), Coo (bird), Kine (fish)
+- **Types**: Blue Jelly, Green Jelly, Red Jelly, Yellow Jelly
 - **Behavior**:
   - Used to sandwich other blocks
   - Eliminate when 2+ identical Friend Blocks touch horizontally or vertically
@@ -125,9 +125,10 @@ When a pair lands:
 
 ## Sprites
 
-- **Rick**: `hamster.png`
-- **Coo**: `bird.png`
-- **Kine**: `fish.png`
+- **Blue Jelly**: `blue-jelly-idle.gif`
+- **Green Jelly**: `jelly-idle.gif`
+- **Red Jelly**: `red-jelly-idle.gif`
+- **Yellow Jelly**: `yellow-jelly-idle.gif`
 - **Star**: `star.png`
 - **Hard Block**: `block.png`
 - **Bomb**: `block.png` (placeholder)
